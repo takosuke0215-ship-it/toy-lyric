@@ -1128,13 +1128,26 @@
 はじまりだ！</textarea>
 
         <div class="sync-btn-bar" style="display:flex; flex-direction:column; gap:8px;">
-          <button type="button" class="toy-btn toy-btn-pink" style="width: 100%; padding: 12px; font-size: 1rem; box-shadow: 0 4px 0 var(--toy-pink-shadow);" onclick="startTapRecording()">
-            🎙️ 歌に合わせてタップ記録！（神同期モード）
+          <button type="button" class="toy-btn toy-btn-blue" id="btnAnalyzeSinging" style="width: 100%; padding: 12px; font-size: 1.05rem;" onclick="analyzeFullAudioSingingSync()">
+            🤖 歌声を全編分析して自動同期！（フルスキャン）
           </button>
           <div style="display:flex; gap:8px;">
-            <button type="button" class="toy-btn toy-btn-yellow" style="flex: 1; padding: 8px 10px; font-size: 0.85rem;" onclick="autoSyncLyrics()">
-              🪄 均等に自動割り当て
+            <button type="button" class="toy-btn toy-btn-pink" style="flex: 1.4; padding: 10px 8px; font-size: 0.85rem;" onclick="startTapRecording()">
+              🎙️ 歌に合わせてタップ記録
             </button>
+            <button type="button" class="toy-btn toy-btn-yellow" style="flex: 1; padding: 10px 8px; font-size: 0.85rem;" onclick="autoSyncLyrics()">
+              🪄 均等割り当て
+            </button>
+          </div>
+        </div>
+
+        <!-- Analyzing Indicator (Hidden by default) -->
+        <div id="singingAnalysisIndicator" style="display:none; background:#eff6ff; border:2px solid #93c5fd; border-radius:14px; padding:10px; margin-top:8px; text-align:center;">
+          <div style="font-size:0.85rem; font-weight:900; color:#1d4ed8; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <span>🔍 楽曲全体の歌声・フレーズを解析中...</span>
+          </div>
+          <div class="progress-bar-wrap" style="height:10px; margin-top:6px;">
+            <div class="progress-fill" id="analysisProgressFill" style="width:0%;"></div>
           </div>
         </div>
 
@@ -1692,6 +1705,160 @@
       const text = lyricsInput.value.trim();
       if (!text) return [];
       return text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    }
+
+    /* 🤖 FULL-TRACK SINGING & PHRASE ANALYSIS AUTO-SYNC */
+    async function analyzeFullAudioSingingSync() {
+      initAudioContext();
+      if (!APP_STATE.audioBuffer) {
+        loadDemoSynthesizerTrack();
+      }
+
+      const lines = getLyricsLinesFromInput();
+      if (lines.length === 0) {
+        alert('まずは歌詞を入力してください！');
+        return;
+      }
+
+      const btn = document.getElementById('btnAnalyzeSinging');
+      const indicator = document.getElementById('singingAnalysisIndicator');
+      const progressFill = document.getElementById('analysisProgressFill');
+
+      btn.disabled = true;
+      indicator.style.display = 'block';
+      progressFill.style.width = '15%';
+
+      // Run asynchronously with smooth progress animation
+      setTimeout(() => {
+        try {
+          const buffer = APP_STATE.audioBuffer;
+          const sampleRate = buffer.sampleRate;
+          const channelData = buffer.getChannelData(0);
+          const totalDuration = buffer.duration;
+          const N = lines.length;
+
+          progressFill.style.width = '40%';
+
+          // 1. Vocal Bandpass & RMS Envelope Scan (50ms window)
+          const windowSec = 0.05;
+          const windowSamples = Math.floor(sampleRate * windowSec);
+          const numWindows = Math.floor(channelData.length / windowSamples);
+          const vocalEnergy = new Float32Array(numWindows);
+          const onsetFlux = new Float32Array(numWindows);
+
+          // Scan mid-range vocal formant frequencies (250Hz - 3400Hz)
+          for (let w = 0; w < numWindows; w++) {
+            let sum = 0;
+            const startSample = w * windowSamples;
+            for (let i = 0; i < windowSamples - 1; i += 2) {
+              const s0 = channelData[startSample + i];
+              const s1 = channelData[startSample + i + 1];
+              const midPass = (s1 - s0) * 0.7 + s0 * 0.5;
+              sum += midPass * midPass;
+            }
+            vocalEnergy[w] = Math.sqrt(sum / (windowSamples / 2));
+            if (w > 0) {
+              onsetFlux[w] = Math.max(0, vocalEnergy[w] - vocalEnergy[w - 1]);
+            }
+          }
+
+          progressFill.style.width = '70%';
+
+          // 2. Detect candidate onset peaks across whole song
+          const candidatePeaks = [];
+          for (let w = 2; w < numWindows - 2; w++) {
+            const time = w * windowSec;
+            const flux = onsetFlux[w];
+            // Check if local peak
+            if (flux > onsetFlux[w - 1] && flux > onsetFlux[w + 1] && flux > 0.006) {
+              candidatePeaks.push({
+                time: time,
+                flux: flux,
+                energy: vocalEnergy[w]
+              });
+            }
+          }
+
+          // 3. Find 1st strong singing onset (skip instrumental intro)
+          let introEndTime = Math.min(1.2, totalDuration * 0.05);
+          for (let p of candidatePeaks) {
+            if (p.energy > 0.012 && p.time >= 0.4) {
+              introEndTime = Math.max(0.4, p.time - 0.12);
+              break;
+            }
+          }
+
+          progressFill.style.width = '90%';
+
+          // 4. Optimal mapping of N lines across detected vocal phrase landmarks
+          const synced = [];
+          const effectiveDuration = Math.max(2.0, totalDuration - introEndTime - 1.0);
+          const idealStep = effectiveDuration / N;
+
+          let lastStartTime = introEndTime;
+
+          for (let i = 0; i < N; i++) {
+            const idealTime = introEndTime + i * idealStep;
+            // Search candidate peaks within a window around idealTime (+/- 45% of idealStep)
+            const searchWindow = idealStep * 0.45;
+            let bestPeakTime = idealTime;
+            let bestScore = -1;
+
+            for (let p of candidatePeaks) {
+              if (p.time >= lastStartTime + 0.6 && Math.abs(p.time - idealTime) <= searchWindow) {
+                const dist = Math.abs(p.time - idealTime) / searchWindow;
+                const score = (p.flux * 2.5 + p.energy) * (1.0 - dist * 0.5);
+                if (score > bestScore) {
+                  bestScore = score;
+                  bestPeakTime = p.time;
+                }
+              }
+            }
+
+            const lineStart = parseFloat(Math.max(lastStartTime + (i === 0 ? 0 : 0.8), bestPeakTime).toFixed(2));
+            lastStartTime = lineStart;
+
+            const layouts = ['horizontal', 'vertical', 'diagonal'];
+            synced.push({
+              text: lines[i],
+              start: lineStart,
+              end: lineStart + 1.0,
+              layoutOverride: layouts[i % layouts.length]
+            });
+          }
+
+          // Adjust end times to connect to next phrase or breath pause
+          for (let i = 0; i < N; i++) {
+            if (i < N - 1) {
+              const nextStart = synced[i + 1].start;
+              const gap = nextStart - synced[i].start;
+              synced[i].end = parseFloat((gap > 3.5 ? synced[i].start + 3.0 : nextStart - 0.1).toFixed(2));
+            } else {
+              synced[i].end = parseFloat(Math.min(totalDuration, synced[i].start + 3.5).toFixed(2));
+            }
+          }
+
+          progressFill.style.width = '100%';
+
+          setTimeout(() => {
+            APP_STATE.lyrics = synced;
+            renderTimelineList();
+            btn.disabled = false;
+            indicator.style.display = 'none';
+
+            playSfx('gacha');
+            if (window.confetti) {
+              confetti({ particleCount: 90, spread: 70 });
+            }
+          }, 350);
+
+        } catch (err) {
+          console.error(err);
+          btn.disabled = false;
+          indicator.style.display = 'none';
+          alert('解析中にエラーが発生しました。均等同期をお試しください。');
+        }
+      }, 50);
     }
 
     function autoSyncLyrics() {

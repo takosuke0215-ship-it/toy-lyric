@@ -1,0 +1,2383 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Toy Lyric Video Maker (おもちゃ風リリックビデオメーカー)</title>
+  <meta name="description" content="ブラウザ完結でおもちゃ感覚でリリックモーションビデオ（MV）を作成・保存できるWebアプリ">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=DotGothic16&family=M+PLUS+Rounded+1c:wght@400;700;900&family=Outfit:wght@600;900&family=Shippori+Mincho:wght@700;900&family=Yuji+Boku&display=swap" rel="stylesheet">
+
+  <!-- Canvas Confetti CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+  <style>
+    :root {
+      --bg-main: #fdf6ec;
+      --toy-yellow: #ffcf24;
+      --toy-yellow-shadow: #d49f05;
+      --toy-pink: #ff5e7e;
+      --toy-pink-shadow: #c72949;
+      --toy-blue: #3bb2f6;
+      --toy-blue-shadow: #1479b4;
+      --toy-green: #2ecc71;
+      --toy-green-shadow: #1ea055;
+      --toy-purple: #a855f7;
+      --toy-purple-shadow: #7925c4;
+      --toy-orange: #ff8833;
+      --toy-orange-shadow: #c95605;
+      --toy-dark: #2c2538;
+      --card-bg: #ffffff;
+      --card-border: #f0e6d6;
+      --font-main: 'M PLUS Rounded 1c', 'Outfit', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      font-family: var(--font-main);
+      background-color: var(--bg-main);
+      background-image: 
+        radial-gradient(#ffdfa9 1.5px, transparent 1.5px),
+        radial-gradient(#ffdfa9 1.5px, var(--bg-main) 1.5px);
+      background-size: 30px 30px;
+      background-position: 0 0, 15px 15px;
+      color: var(--toy-dark);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    header {
+      width: 100%;
+      max-width: 900px;
+      text-align: center;
+      padding: 12px 10px 18px;
+    }
+
+    .app-title {
+      font-size: clamp(1.6rem, 5vw, 2.4rem);
+      font-weight: 900;
+      color: #ff476f;
+      text-shadow: 
+        3px 3px 0 var(--toy-yellow),
+        -2px -2px 0 #fff,
+        2px -2px 0 #fff,
+        -2px 2px 0 #fff,
+        4px 4px 0px rgba(0,0,0,0.15);
+      letter-spacing: -0.5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      animation: gentle-tilt 3s ease-in-out infinite alternate;
+    }
+
+    @keyframes gentle-tilt {
+      0% { transform: rotate(-1.5deg); }
+      100% { transform: rotate(1.5deg); }
+    }
+
+    .app-subtitle {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #6a5e78;
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    /* Main Container Layout */
+    .app-wrapper {
+      width: 100%;
+      max-width: 980px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+
+    @media (min-width: 820px) {
+      .app-wrapper {
+        grid-template-columns: 460px 1fr;
+        align-items: start;
+      }
+    }
+
+    /* Preview Section (Sticky on PC) */
+    .preview-section {
+      background: var(--card-bg);
+      border-radius: 28px;
+      padding: 16px;
+      box-shadow: 0 10px 25px rgba(160, 110, 50, 0.12), 0 3px 0 #e6dbcb;
+      border: 3px solid #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    @media (min-width: 820px) {
+      .preview-section {
+        position: sticky;
+        top: 16px;
+      }
+    }
+
+    /* Aspect Ratio Toggle Bar */
+    .aspect-controls {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      margin-bottom: 12px;
+    }
+
+    .aspect-btn {
+      flex: 1;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 14px;
+      background: #f0e6d6;
+      color: #6d617a;
+      font-size: 0.85rem;
+      font-weight: 900;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      box-shadow: 0 3px 0 #d9cdbd;
+    }
+
+    .aspect-btn.active {
+      background: var(--toy-blue);
+      color: white;
+      box-shadow: 0 4px 0 var(--toy-blue-shadow);
+      transform: translateY(-1px);
+    }
+
+    .aspect-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+    }
+
+    /* Canvas Box */
+    .canvas-container {
+      width: 100%;
+      max-width: 360px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #110e1a;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.6), 0 6px 16px rgba(0,0,0,0.15);
+      position: relative;
+      touch-action: none;
+      aspect-ratio: 9/16;
+      transition: aspect-ratio 0.3s ease;
+    }
+
+    .canvas-container.ratio-16-9 {
+      aspect-ratio: 16/9;
+      max-width: 100%;
+    }
+
+    canvas#videoCanvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      cursor: pointer;
+    }
+
+    /* Tap Ripple Indicator */
+    .tap-hint {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.55);
+      color: #ffdf79;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 100px;
+      pointer-events: none;
+      backdrop-filter: blur(4px);
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Rhythm / Stamp Action Buttons */
+    .rhythm-bar {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      margin-top: 12px;
+    }
+
+    .stamp-btn {
+      flex: 1;
+      border: none;
+      border-radius: 16px;
+      padding: 10px 4px;
+      font-size: 1.25rem;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      background: #fff;
+      box-shadow: 0 4px 0 #e6dbcb, 0 3px 8px rgba(0,0,0,0.06);
+      border: 2px solid #f6eee3;
+      transition: all 0.1s ease;
+    }
+
+    .stamp-btn span {
+      font-size: 0.65rem;
+      font-weight: 900;
+      color: #6a5e78;
+    }
+
+    .stamp-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 0 #e6dbcb;
+    }
+
+    .stamp-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #e6dbcb;
+    }
+
+    /* Audio Playback Controls in Preview */
+    .player-controls {
+      width: 100%;
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .time-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .time-text {
+      font-size: 0.75rem;
+      font-weight: 900;
+      color: #8c7f99;
+      min-width: 42px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"].toy-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      flex: 1;
+      height: 12px;
+      border-radius: 8px;
+      background: #ede3d3;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"].toy-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--toy-pink);
+      border: 3px solid #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.25);
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+
+    input[type="range"].toy-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+
+    .play-btn-row {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .toy-btn {
+      border: none;
+      border-radius: 18px;
+      padding: 12px 18px;
+      font-family: var(--font-main);
+      font-size: 1rem;
+      font-weight: 900;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.12s ease;
+      color: #fff;
+      position: relative;
+    }
+
+    .toy-btn-pink {
+      background: var(--toy-pink);
+      box-shadow: 0 5px 0 var(--toy-pink-shadow);
+    }
+    .toy-btn-pink:active {
+      transform: translateY(3px);
+      box-shadow: 0 2px 0 var(--toy-pink-shadow);
+    }
+
+    .toy-btn-yellow {
+      background: var(--toy-yellow);
+      color: #523900;
+      box-shadow: 0 5px 0 var(--toy-yellow-shadow);
+    }
+    .toy-btn-yellow:active {
+      transform: translateY(3px);
+      box-shadow: 0 2px 0 var(--toy-yellow-shadow);
+    }
+
+    .toy-btn-blue {
+      background: var(--toy-blue);
+      box-shadow: 0 5px 0 var(--toy-blue-shadow);
+    }
+    .toy-btn-blue:active {
+      transform: translateY(3px);
+      box-shadow: 0 2px 0 var(--toy-blue-shadow);
+    }
+
+    .toy-btn-green {
+      background: var(--toy-green);
+      box-shadow: 0 5px 0 var(--toy-green-shadow);
+    }
+    .toy-btn-green:active {
+      transform: translateY(3px);
+      box-shadow: 0 2px 0 var(--toy-green-shadow);
+    }
+
+    .toy-btn-purple {
+      background: var(--toy-purple);
+      box-shadow: 0 5px 0 var(--toy-purple-shadow);
+    }
+    .toy-btn-purple:active {
+      transform: translateY(3px);
+      box-shadow: 0 2px 0 var(--toy-purple-shadow);
+    }
+
+    .play-master-btn {
+      flex: 1;
+      font-size: 1.05rem;
+    }
+
+    /* Settings Section */
+    .settings-section {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Giant Gacha Box */
+    .gacha-card {
+      background: linear-gradient(135deg, #ffe066 0%, #ffbe3b 50%, #ffa502 100%);
+      border-radius: 26px;
+      padding: 16px 20px;
+      box-shadow: 0 8px 20px rgba(255, 165, 2, 0.35), 0 6px 0 #cc8400, inset 0 2px 0 rgba(255,255,255,0.7);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      border: 3px solid #fff;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .gacha-card::before {
+      content: "✨";
+      position: absolute;
+      top: -10px;
+      right: 15px;
+      font-size: 3rem;
+      opacity: 0.35;
+      transform: rotate(15deg);
+      pointer-events: none;
+    }
+
+    .gacha-header {
+      font-size: 0.95rem;
+      font-weight: 900;
+      color: #633f00;
+      text-align: center;
+    }
+
+    .gacha-btn {
+      width: 100%;
+      padding: 16px 24px;
+      background: linear-gradient(180deg, #ff4071 0%, #eb2f64 100%);
+      color: white;
+      border: 3px solid #fff;
+      border-radius: 22px;
+      font-size: clamp(1.2rem, 3.5vw, 1.45rem);
+      font-weight: 900;
+      box-shadow: 0 8px 0 #a81c42, 0 8px 20px rgba(235, 47, 100, 0.4);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      transition: all 0.12s ease;
+      letter-spacing: 0.5px;
+      animation: pulse-gacha 2.2s infinite ease-in-out;
+    }
+
+    @keyframes pulse-gacha {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.025); }
+    }
+
+    .gacha-btn:active {
+      transform: translateY(6px) scale(0.98);
+      box-shadow: 0 2px 0 #a81c42;
+    }
+
+    /* Accordion / Card Blocks */
+    .card-block {
+      background: var(--card-bg);
+      border-radius: 22px;
+      padding: 16px;
+      border: 2px solid var(--card-border);
+      box-shadow: 0 5px 15px rgba(120, 90, 60, 0.06), 0 3px 0 #ede2d3;
+    }
+
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 900;
+      color: var(--toy-dark);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .card-title .badge {
+      font-size: 0.72rem;
+      font-weight: 900;
+      padding: 4px 10px;
+      border-radius: 100px;
+      background: #f4ecdf;
+      color: #7b6f8a;
+    }
+
+    /* Audio Inputs */
+    .audio-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .upload-label {
+      background: #fdf2ff;
+      border: 2px dashed #d8b4fe;
+      border-radius: 16px;
+      padding: 12px 10px;
+      text-align: center;
+      cursor: pointer;
+      color: var(--toy-purple);
+      font-size: 0.85rem;
+      font-weight: 900;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.15s;
+    }
+
+    .upload-label:hover {
+      background: #f5e3ff;
+    }
+
+    .demo-track-btn {
+      background: #eef8ff;
+      border: 2px solid #bce1fe;
+      border-radius: 16px;
+      padding: 12px 10px;
+      text-align: center;
+      cursor: pointer;
+      color: var(--toy-blue);
+      font-size: 0.85rem;
+      font-weight: 900;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.15s;
+    }
+
+    .demo-track-btn:hover {
+      background: #e0f2fe;
+    }
+
+    .loaded-song-badge {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+      padding: 8px 12px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    /* Lyrics Textarea & Sync */
+    .lyrics-area {
+      width: 100%;
+      height: 110px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 2px solid #e6dcce;
+      background: #faf6f0;
+      font-family: var(--font-main);
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #332a42;
+      line-height: 1.6;
+      resize: vertical;
+      outline: none;
+      transition: border 0.15s;
+      user-select: text;
+    }
+
+    .lyrics-area:focus {
+      border-color: var(--toy-pink);
+      background: #fff;
+    }
+
+    .sync-btn-bar {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    /* Style Selector Pill Grid */
+    .pill-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+      gap: 8px;
+    }
+
+    .pill-choice {
+      padding: 10px 8px;
+      border-radius: 14px;
+      border: 2px solid #eadecd;
+      background: #fff;
+      font-size: 0.82rem;
+      font-weight: 900;
+      color: #554a63;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.12s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .pill-choice span.icon {
+      font-size: 1.2rem;
+    }
+
+    .pill-choice:hover {
+      border-color: var(--toy-blue);
+      transform: translateY(-1px);
+    }
+
+    .pill-choice.selected {
+      background: #ebf7ff;
+      border-color: var(--toy-blue);
+      color: #0b6cb5;
+      box-shadow: 0 3px 0 var(--toy-blue);
+      transform: translateY(-2px);
+    }
+
+    /* Background Images Uploader */
+    .img-upload-box {
+      border: 2px dashed #fed7aa;
+      background: #fffaf5;
+      border-radius: 16px;
+      padding: 12px;
+      text-align: center;
+      cursor: pointer;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      font-weight: 900;
+      color: var(--toy-orange);
+    }
+
+    .img-thumbnails-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: thin;
+    }
+
+    .img-thumb-item {
+      position: relative;
+      flex-shrink: 0;
+      width: 54px;
+      height: 54px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 2px solid #f0e2d1;
+    }
+
+    .img-thumb-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .img-thumb-remove {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 18px;
+      height: 18px;
+      background: rgba(0,0,0,0.65);
+      color: #fff;
+      border-radius: 50%;
+      border: none;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    /* Export Box */
+    .export-box {
+      background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+      border: 3px solid #fff;
+      border-radius: 24px;
+      padding: 18px 20px;
+      box-shadow: 0 6px 16px rgba(34, 197, 94, 0.25), 0 5px 0 #16a34a;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .export-title {
+      font-size: 1.1rem;
+      font-weight: 900;
+      color: #14532d;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .export-desc {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #166534;
+      line-height: 1.4;
+    }
+
+    .export-btn {
+      width: 100%;
+      padding: 14px;
+      font-size: 1.15rem;
+    }
+
+    /* Modal for Recording / Download */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(20, 15, 30, 0.75);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .modal-backdrop.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background: #fff;
+      border-radius: 28px;
+      padding: 24px;
+      width: 100%;
+      max-width: 440px;
+      border: 4px solid var(--toy-yellow);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 14px;
+      transform: scale(0.92);
+      transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .modal-backdrop.show .modal-card {
+      transform: scale(1);
+    }
+
+    .progress-bar-wrap {
+      width: 100%;
+      height: 18px;
+      background: #f1ebd9;
+      border-radius: 100px;
+      overflow: hidden;
+      border: 2px solid #e1d4bf;
+      position: relative;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #ff4071, #ffbf28);
+      border-radius: 100px;
+      transition: width 0.1s linear;
+    }
+
+    .video-preview-output {
+      width: 100%;
+      max-height: 260px;
+      border-radius: 16px;
+      background: #000;
+      object-fit: contain;
+    }
+
+    /* Screen Shake Animation */
+    .shake-effect {
+      animation: screen-shake 0.45s cubic-bezier(.36,.07,.19,.97) both;
+    }
+
+    @keyframes screen-shake {
+      10%, 90% { transform: translate3d(-3px, 1px, 0) rotate(-0.5deg); }
+      20%, 80% { transform: translate3d(4px, -2px, 0) rotate(0.8deg); }
+      30%, 50%, 70% { transform: translate3d(-5px, 3px, 0) rotate(-1deg); }
+      40%, 60% { transform: translate3d(5px, -1px, 0) rotate(0.6deg); }
+    }
+
+    /* Timeline breakdown / lyrics lines list */
+    .timeline-preview {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 130px;
+      overflow-y: auto;
+      margin-top: 10px;
+      padding-right: 4px;
+      scrollbar-width: thin;
+    }
+
+    .timeline-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 12px;
+      background: #faf6ee;
+      font-size: 0.78rem;
+      border: 1px solid #ede3d3;
+    }
+
+    .timeline-item.active {
+      background: #fce7f3;
+      border-color: #f472b6;
+      font-weight: 900;
+      color: #be185d;
+    }
+
+    .timeline-badge {
+      font-size: 0.7rem;
+      font-weight: 900;
+      color: #9385a3;
+      min-width: 38px;
+    }
+
+    .timeline-text {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Footer */
+    footer {
+      margin-top: 28px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #8c7f99;
+      text-align: center;
+      padding-bottom: 20px;
+    }
+
+    /* Hidden file inputs */
+    input[type="file"].hidden-input {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <h1 class="app-title">🧸 Toy Lyric Video Maker</h1>
+    <div class="app-subtitle">
+      <span>🚀 おもちゃ感覚で誰でも超カンタンにMV作成！</span>
+      <span>•</span>
+      <span>📱 スマホ＆PC完全対応</span>
+    </div>
+  </header>
+
+  <div class="app-wrapper">
+
+    <!-- LEFT COLUMN: Canvas Preview & Live Playback -->
+    <div class="preview-section" id="previewContainer">
+
+      <!-- Aspect Ratio Switch -->
+      <div class="aspect-controls">
+        <button type="button" class="aspect-btn active" id="btnRatio916" onclick="setAspectRatio('9:16')">
+          📱 縦型 (9:16 - TikTok/Reels)
+        </button>
+        <button type="button" class="aspect-btn" id="btnRatio169" onclick="setAspectRatio('16:9')">
+          🖥️ 横型 (16:9 - YouTube)
+        </button>
+      </div>
+
+      <!-- Canvas Frame -->
+      <div class="canvas-container" id="canvasBox">
+        <canvas id="videoCanvas" width="720" height="1280"></canvas>
+        <div class="tap-hint">👆 画面タップでスタンプが弾けるよ！</div>
+      </div>
+
+      <!-- Stamp / Rhythm Play Buttons -->
+      <div class="rhythm-bar">
+        <button type="button" class="stamp-btn" onclick="triggerStamp('flower')">
+          🌸 <span>はな</span>
+        </button>
+        <button type="button" class="stamp-btn" onclick="triggerStamp('spark')">
+          ⚡ <span>ピカッ</span>
+        </button>
+        <button type="button" class="stamp-btn" onclick="triggerStamp('heart')">
+          💖 <span>ハート</span>
+        </button>
+        <button type="button" class="stamp-btn" onclick="triggerStamp('firework')">
+          🎆 <span>はなび</span>
+        </button>
+      </div>
+
+      <!-- Player & Seekbar -->
+      <div class="player-controls">
+        <div class="time-slider-row">
+          <span class="time-text" id="currentTimeLabel">0:00</span>
+          <input type="range" class="toy-slider" id="timeSlider" min="0" max="100" value="0" step="0.1" oninput="onSeekSlider(this.value)">
+          <span class="time-text" id="totalTimeLabel">0:00</span>
+        </div>
+
+        <div class="play-btn-row">
+          <button type="button" class="toy-btn toy-btn-pink play-master-btn" id="playToggleBtn" onclick="togglePlay()">
+            ▶️ 再生する
+          </button>
+          <button type="button" class="toy-btn toy-btn-yellow" onclick="stopPlayback()">
+            ⏹️ 最初へ
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN: Settings, Gacha, Customizers -->
+    <div class="settings-section">
+
+      <!-- 🎲 GACHA BUTTON (TOP PRIORITY & PROMINENT) -->
+      <div class="gacha-card">
+        <div class="gacha-header">✨ なやんだらコレ！ワンタップで全部おまかせ！ ✨</div>
+        <button type="button" class="gacha-btn" id="gachaBtn" onclick="spinGacha()">
+          🎰 おまかせガチャを回す！ 🎲
+        </button>
+      </div>
+
+      <!-- 1. Music & Sync -->
+      <div class="card-block">
+        <div class="card-title">
+          <span>🎵 1. おんがく＆歌詞</span>
+          <span class="badge" id="audioStatusBadge">デモ音源</span>
+        </div>
+
+        <div class="audio-actions">
+          <label class="upload-label" for="audioFileInput">
+            <span style="font-size:1.4rem;">📂</span>
+            <span>MP3 / WAV を選ぶ</span>
+          </label>
+          <input type="file" id="audioFileInput" class="hidden-input" accept="audio/*" onchange="handleAudioUpload(event)">
+
+          <div class="demo-track-btn" onclick="loadDemoSynthesizerTrack()">
+            <span style="font-size:1.4rem;">🎹</span>
+            <span>デモ曲（ポップビート）</span>
+          </div>
+        </div>
+
+        <div class="loaded-song-badge" id="songTitleDisplay">
+          <span id="songTitleText">🎶 楽しいおもちゃポップビート (内蔵)</span>
+          <span id="songDurationText">0:32</span>
+        </div>
+
+        <label style="font-size: 0.82rem; font-weight: 900; color: #6a5e78; display: block; margin-bottom: 6px;">
+          📝 歌詞を入力（1行ずつ自動で切り替わります）:
+        </label>
+        <textarea id="lyricsInput" class="lyrics-area" placeholder="ここに歌詞を入力してね...">キラキラ光る お星さま
+リズムに乗って ステップふんで
+心おどる メロディー
+世界中にとどけよう！
+おもちゃの国の パレードだ！
+みんなで いっしょに
+てをたたこう！
+たのしい じかんの
+はじまりだ！</textarea>
+
+        <div class="sync-btn-bar">
+          <button type="button" class="toy-btn toy-btn-yellow" style="flex: 1; padding: 10px; font-size: 0.9rem;" onclick="autoSyncLyrics()">
+            🪄 魔法の自動同期！
+          </button>
+        </div>
+
+        <!-- Timeline preview items -->
+        <div class="timeline-preview" id="timelineList"></div>
+      </div>
+
+      <!-- 2. Style Genre (7 Types) -->
+      <div class="card-block">
+        <div class="card-title">
+          <span>🎨 2. スタイルジャンル (全7種)</span>
+          <span class="badge" id="currentGenreLabel">ポップ</span>
+        </div>
+        <div class="pill-grid" id="genreGrid">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- 3. Layout & Font Size (4 Layouts + 3 Sizes) -->
+      <div class="card-block">
+        <div class="card-title">
+          <span>📐 3. 文字の配置 & 大きさ</span>
+        </div>
+
+        <label style="font-size: 0.78rem; font-weight: 900; color: #7f728c; display: block; margin-bottom: 6px;">
+          【文字の配置】
+        </label>
+        <div class="pill-grid" id="layoutGrid" style="margin-bottom: 12px;">
+          <!-- Populated by JS -->
+        </div>
+
+        <label style="font-size: 0.78rem; font-weight: 900; color: #7f728c; display: block; margin-bottom: 6px;">
+          【文字の大きさ】
+        </label>
+        <div class="pill-grid" id="fontSizeGrid">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- 4. Background Shapes Effect (8 Types) -->
+      <div class="card-block">
+        <div class="card-title">
+          <span>✨ 4. 背景エフェクト (全8種)</span>
+          <span class="badge" id="currentEffectLabel">ポップバブル</span>
+        </div>
+        <div class="pill-grid" id="effectGrid">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- 5. Background Images Slideshow (Up to 15 images) -->
+      <div class="card-block">
+        <div class="card-title">
+          <span>🖼️ 5. 背景画像スライドショー</span>
+          <span class="badge" id="imgCountBadge">0 / 15枚</span>
+        </div>
+
+        <label class="img-upload-box" for="imageFileInput">
+          <span style="font-size:1.3rem;">📸</span>
+          <span>好きな写真・イラストを追加する (最大15枚)</span>
+        </label>
+        <input type="file" id="imageFileInput" class="hidden-input" accept="image/*" multiple onchange="handleImageUpload(event)">
+
+        <div class="img-thumbnails-row" id="imageThumbnailsRow">
+          <!-- Thumbnail items -->
+        </div>
+        <div style="font-size:0.75rem; color:#8d7f99; font-weight:700; margin-top:6px;">
+          ※ 画像が0枚のときは、ジャンルに合わせた動的グラデーション背景が自動描画されます。
+        </div>
+      </div>
+
+      <!-- 6. Video Export & Download -->
+      <div class="export-box">
+        <div class="export-title">
+          <span>🎬 6. 動画を保存する (MP4 / WebM)</span>
+          <span style="font-size:1.4rem;">💾</span>
+        </div>
+        <div class="export-desc">
+          サーバーを使わず、ブラウザ内だけで超高画質動画を作成！<br>
+          スマホのカメラロールやPCへ直接保存できます。
+        </div>
+        <button type="button" class="toy-btn toy-btn-green export-btn" id="startExportBtn" onclick="startExportVideo()">
+          🎥 動画を作成・保存する！
+        </button>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Exporting / Result Modal -->
+  <div class="modal-backdrop" id="exportModal">
+    <div class="modal-card">
+      <div id="exportModalTitle" style="font-size: 1.3rem; font-weight: 900; color: #ff3b69;">
+        🎥 動画を作成中...
+      </div>
+      <div id="exportModalDesc" style="font-size: 0.88rem; font-weight: 700; color: #6a5e78;">
+        曲の長さに合わせて動画をレンダリングしています。少々お待ちください！
+      </div>
+
+      <div class="progress-bar-wrap" id="exportProgressBarBox">
+        <div class="progress-fill" id="exportProgressBar"></div>
+      </div>
+      <div id="exportProgressText" style="font-size: 0.8rem; font-weight: 900; color: #ff3b69;">0%</div>
+
+      <video id="exportedVideoPreview" class="video-preview-output" controls playsinline style="display:none;"></video>
+
+      <div id="exportModalActions" style="display:flex; gap:10px; width:100%; margin-top:8px;">
+        <button type="button" class="toy-btn toy-btn-yellow" id="modalCancelBtn" style="flex:1;" onclick="cancelExport()">
+          キャンセル
+        </button>
+        <a id="modalDownloadBtn" class="toy-btn toy-btn-green" style="flex:2; text-decoration:none; display:none;" download="toy_lyric_video.mp4">
+          📥 ダウンロード
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Toy Lyric Video Maker &bull; 完全クライアントサイド動作 (サーバー通信なし・個人情報安心)
+  </footer>
+
+  <script>
+    /* =========================================================================
+       STATE MANAGEMENT & PRESETS
+       ========================================================================= */
+    
+    const APP_STATE = {
+      aspectRatio: '9:16', // '9:16' (720x1280) or '16:9' (1280x720)
+      canvasWidth: 720,
+      canvasHeight: 1280,
+      isPlaying: false,
+      currentTime: 0,
+      duration: 32, // default demo track length
+      isDemoTrack: true,
+
+      genre: 'pop',       // simple, pop, rock, idol, literature, emo, retro
+      layout: 'horizontal', // horizontal, vertical, diagonal, mix
+      fontSize: 'large',  // impact, large, normal
+      effect: 'bubble',    // none, flow, rings, bubble, speed, grid, star, mix
+
+      lyrics: [],         // array of { text, start, end, layoutOverride }
+      images: [],         // array of Image objects loaded
+      currentImageIndex: 0,
+      imageBlendAlpha: 0,
+
+      // Live tap stamps
+      stamps: [],
+
+      // Audio & Analysis
+      audioCtx: null,
+      audioBuffer: null,
+      audioSourceNode: null,
+      analyserNode: null,
+      audioStreamDest: null,
+      frequencyData: new Uint8Array(64),
+      bassLevel: 0,
+      trebleLevel: 0,
+      volumeLevel: 0,
+      startTimeOffset: 0,
+      startedAtAudioTime: 0,
+
+      // MediaRecorder Export
+      isExporting: false,
+      mediaRecorder: null,
+      recordedChunks: [],
+      exportStartTime: 0
+    };
+
+    // 1. Genres Definition
+    const GENRES = [
+      { id: 'simple', name: 'シンプル', icon: '⚪', font: "'Outfit', 'M PLUS Rounded 1c', sans-serif", textColor: '#ffffff', strokeColor: '#222222', strokeWidth: 8, glow: false, bgGradient: ['#3a3d40', '#181719'] },
+      { id: 'pop', name: 'ポップ', icon: '🍭', font: "'M PLUS Rounded 1c', sans-serif", textColor: '#ffffff', strokeColor: '#ff2d55', strokeWidth: 14, glow: true, glowColor: '#ffea00', bgGradient: ['#ff8da1', '#ffc078'] },
+      { id: 'rock', name: 'ロック', icon: '🔥', font: "'Dela Gothic One', sans-serif", textColor: '#ffee00', strokeColor: '#000000', strokeWidth: 16, glow: true, glowColor: '#ff0033', bgGradient: ['#1a0307', '#4a0808'] },
+      { id: 'idol', name: 'アイドル', icon: '💖', font: "'M PLUS Rounded 1c', sans-serif", textColor: '#ffffff', strokeColor: '#ff4081', strokeWidth: 12, glow: true, glowColor: '#ff80ab', bgGradient: ['#ffb6c1', '#b388ff'] },
+      { id: 'literature', name: '文学的', icon: '📜', font: "'Shippori Mincho', serif", textColor: '#f7f4ea', strokeColor: '#1d1f21', strokeWidth: 6, glow: false, bgGradient: ['#2c3e50', '#000000'] },
+      { id: 'emo', name: 'エモい', icon: '🌌', font: "'Shippori Mincho', sans-serif", textColor: '#c4f0ff', strokeColor: '#16003b', strokeWidth: 10, glow: true, glowColor: '#7b2cbf', bgGradient: ['#0f0c29', '#302b63', '#24243e'] },
+      { id: 'retro', name: 'レトロ8bit', icon: '👾', font: "'DotGothic16', monospace", textColor: '#55ff55', strokeColor: '#000000', strokeWidth: 10, glow: true, glowColor: '#00ff66', bgGradient: ['#000000', '#001a00'] }
+    ];
+
+    // 2. Layouts Definition
+    const LAYOUTS = [
+      { id: 'horizontal', name: '↔️ 横書き' },
+      { id: 'vertical', name: '↕️ 縦書き' },
+      { id: 'diagonal', name: '↗️ 斜め書き' },
+      { id: 'mix', name: '🌀 ミックス' }
+    ];
+
+    // 3. Font Sizes Definition
+    const FONT_SIZES = [
+      { id: 'impact', name: '💥 ド派手', scale: 1.5, shake: true },
+      { id: 'large', name: '🔤 大きめ', scale: 1.15, shake: false },
+      { id: 'normal', name: '📝 普通', scale: 0.85, shake: false }
+    ];
+
+    // 4. Background Shape Effects Definition
+    const SHAPE_EFFECTS = [
+      { id: 'none', name: '🚫 なし' },
+      { id: 'flow', name: '🔷 幾何学フロー' },
+      { id: 'rings', name: '🌀 ネオンリング' },
+      { id: 'bubble', name: '🫧 ポップバブル' },
+      { id: 'speed', name: '⚡ スピードライン' },
+      { id: 'grid', name: '📐 ポリゴングリッド' },
+      { id: 'star', name: '⭐ スターシャワー' },
+      { id: 'mix', name: '🎪 ミックス' }
+    ];
+
+    /* =========================================================================
+       DOM ELEMENTS
+       ========================================================================= */
+    const canvas = document.getElementById('videoCanvas');
+    const ctx = canvas.getContext('2d');
+    const canvasBox = document.getElementById('canvasBox');
+    const timeSlider = document.getElementById('timeSlider');
+    const currentTimeLabel = document.getElementById('currentTimeLabel');
+    const totalTimeLabel = document.getElementById('totalTimeLabel');
+    const playToggleBtn = document.getElementById('playToggleBtn');
+    const lyricsInput = document.getElementById('lyricsInput');
+    const timelineList = document.getElementById('timelineList');
+    const genreGrid = document.getElementById('genreGrid');
+    const layoutGrid = document.getElementById('layoutGrid');
+    const fontSizeGrid = document.getElementById('fontSizeGrid');
+    const effectGrid = document.getElementById('effectGrid');
+    const imageThumbnailsRow = document.getElementById('imageThumbnailsRow');
+    const imgCountBadge = document.getElementById('imgCountBadge');
+    const exportModal = document.getElementById('exportModal');
+    const exportProgressBar = document.getElementById('exportProgressBar');
+    const exportProgressText = document.getElementById('exportProgressText');
+    const exportedVideoPreview = document.getElementById('exportedVideoPreview');
+    const modalDownloadBtn = document.getElementById('modalDownloadBtn');
+    const modalCancelBtn = document.getElementById('modalCancelBtn');
+
+    /* =========================================================================
+       AUDIO SYNTHESIS & WEB AUDIO API
+       ========================================================================= */
+    function initAudioContext() {
+      if (!APP_STATE.audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        APP_STATE.audioCtx = new AudioContextClass();
+        APP_STATE.analyserNode = APP_STATE.audioCtx.createAnalyser();
+        APP_STATE.analyserNode.fftSize = 128;
+        APP_STATE.analyserNode.smoothingTimeConstant = 0.8;
+      }
+      if (APP_STATE.audioCtx.state === 'suspended') {
+        APP_STATE.audioCtx.resume();
+      }
+    }
+
+    // Play synthesized sound effects (for Gacha & Stamps)
+    function playSfx(type) {
+      try {
+        initAudioContext();
+        const ctx = APP_STATE.audioCtx;
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (type === 'gacha') {
+          // Play fanfare arpeggio
+          const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98];
+          notes.forEach((freq, i) => {
+            const noteOsc = ctx.createOscillator();
+            const noteGain = ctx.createGain();
+            noteOsc.type = 'triangle';
+            noteOsc.frequency.setValueAtTime(freq, now + i * 0.08);
+            noteGain.gain.setValueAtTime(0.2, now + i * 0.08);
+            noteGain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.3);
+            noteOsc.connect(noteGain);
+            noteGain.connect(ctx.destination);
+            noteOsc.start(now + i * 0.08);
+            noteOsc.stop(now + i * 0.08 + 0.35);
+          });
+          return;
+        }
+
+        if (type === 'pop') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(400, now);
+          osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+          gain.gain.setValueAtTime(0.25, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+          osc.start(now);
+          osc.stop(now + 0.12);
+        } else if (type === 'spark') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(880, now);
+          osc.frequency.linearRampToValueAtTime(1760, now + 0.08);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+          osc.start(now);
+          osc.stop(now + 0.1);
+        } else if (type === 'heart') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(523.25, now);
+          osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.18);
+          gain.gain.setValueAtTime(0.25, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+          osc.start(now);
+          osc.stop(now + 0.2);
+        } else if (type === 'firework') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(150, now);
+          osc.frequency.exponentialRampToValueAtTime(40, now + 0.35);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+          osc.start(now);
+          osc.stop(now + 0.35);
+        }
+      } catch (e) {
+        // Audio might be blocked until user gesture
+      }
+    }
+
+    // Generate an upbeat catchy toy pop demo music buffer
+    function generateDemoAudioBuffer() {
+      initAudioContext();
+      const sampleRate = APP_STATE.audioCtx.sampleRate;
+      const duration = 32.0; // 32 seconds
+      const numFrames = Math.floor(sampleRate * duration);
+      const buffer = APP_STATE.audioCtx.createBuffer(2, numFrames, sampleRate);
+      const left = buffer.getChannelData(0);
+      const right = buffer.getChannelData(1);
+
+      const bpm = 128;
+      const beatDur = 60 / bpm; // ~0.468s per beat
+      const totalBeats = Math.floor(duration / beatDur);
+
+      // Simple melody scales (C major / pentatonic)
+      const scale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99];
+      const melodyPattern = [
+        0, 2, 4, 2, 5, 4, 2, 0,
+        4, 5, 7, 5, 4, 2, 4, 0,
+        5, 5, 4, 2, 0, 2, 4, 2,
+        7, 5, 4, 2, 0, 2, 0, 0
+      ];
+
+      for (let i = 0; i < numFrames; i++) {
+        const t = i / sampleRate;
+        const currentBeat = Math.floor(t / beatDur);
+        const beatFrac = (t % beatDur) / beatDur;
+
+        // 1. Kick on every beat
+        let kick = 0;
+        if (beatFrac < 0.35) {
+          const kickFreq = 140 * Math.exp(-beatFrac * 22);
+          kick = Math.sin(2 * Math.PI * kickFreq * t) * Math.exp(-beatFrac * 12) * 0.6;
+        }
+
+        // 2. Snare / Clap on beats 1 and 3 (0-indexed: 1, 3)
+        let snare = 0;
+        if ((currentBeat % 2 === 1) && beatFrac < 0.3) {
+          const noise = (Math.random() * 2 - 1) * Math.exp(-beatFrac * 16);
+          const tone = Math.sin(2 * Math.PI * 180 * t) * Math.exp(-beatFrac * 18);
+          snare = (noise * 0.45 + tone * 0.3);
+        }
+
+        // 3. Hi-hat on every 16th note
+        const sixteenthFrac = (t % (beatDur / 2)) / (beatDur / 2);
+        let hat = 0;
+        if (sixteenthFrac < 0.15) {
+          hat = (Math.random() * 2 - 1) * Math.exp(-sixteenthFrac * 35) * 0.18;
+        }
+
+        // 4. Bassline (Walking energetic synth bass)
+        const bassFreq = [130.81, 164.81, 196.00, 164.81][currentBeat % 4];
+        let bass = Math.sin(2 * Math.PI * bassFreq * t) * 0.28 * Math.exp(-beatFrac * 3);
+
+        // 5. Synth Melody
+        const noteIdx = melodyPattern[currentBeat % melodyPattern.length];
+        const melFreq = scale[noteIdx % scale.length];
+        let melody = 0;
+        if (beatFrac < 0.8) {
+          // Bright bouncy square + triangle wave
+          const phase = (melFreq * t) % 1;
+          const sq = phase > 0.5 ? 0.18 : -0.18;
+          const tri = (Math.abs(phase - 0.5) * 4 - 1) * 0.15;
+          melody = (sq + tri) * Math.exp(-beatFrac * 3.5);
+        }
+
+        const sample = (kick + snare + hat + bass + melody) * 0.75;
+        // Soft clipping
+        const limited = Math.max(-1, Math.min(1, sample));
+        left[i] = limited;
+        right[i] = limited;
+      }
+
+      return buffer;
+    }
+
+    function loadDemoSynthesizerTrack() {
+      initAudioContext();
+      stopPlayback();
+      const demoBuffer = generateDemoAudioBuffer();
+      APP_STATE.audioBuffer = demoBuffer;
+      APP_STATE.duration = demoBuffer.duration;
+      APP_STATE.isDemoTrack = true;
+
+      document.getElementById('songTitleText').textContent = '🎶 楽しいおもちゃポップビート (内蔵)';
+      document.getElementById('songDurationText').textContent = formatTime(APP_STATE.duration);
+      document.getElementById('audioStatusBadge').textContent = 'デモ音源';
+      document.getElementById('audioStatusBadge').style.background = '#f4ecdf';
+
+      autoSyncLyrics();
+      updateTimeSliderUI();
+    }
+
+    function handleAudioUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      initAudioContext();
+      stopPlayback();
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        APP_STATE.audioCtx.decodeAudioData(e.target.result, function(buffer) {
+          APP_STATE.audioBuffer = buffer;
+          APP_STATE.duration = buffer.duration;
+          APP_STATE.isDemoTrack = false;
+
+          document.getElementById('songTitleText').textContent = `🎵 ${file.name.slice(0, 22)}`;
+          document.getElementById('songDurationText').textContent = formatTime(buffer.duration);
+          document.getElementById('audioStatusBadge').textContent = 'マイ楽曲';
+          document.getElementById('audioStatusBadge').style.background = '#dcfce7';
+
+          autoSyncLyrics();
+          updateTimeSliderUI();
+        }, function(err) {
+          alert('音声ファイルの読み込みに失敗しました。別のMP3/WAVファイルをお試しください。');
+        });
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    /* =========================================================================
+       AUDIO PLAYBACK & SEEKING
+       ========================================================================= */
+    function togglePlay() {
+      if (APP_STATE.isPlaying) {
+        pausePlayback();
+      } else {
+        startPlayback();
+      }
+    }
+
+    function startPlayback(offset = null) {
+      initAudioContext();
+      if (!APP_STATE.audioBuffer) {
+        loadDemoSynthesizerTrack();
+      }
+
+      if (APP_STATE.isPlaying) {
+        pausePlayback();
+      }
+
+      if (offset !== null) {
+        APP_STATE.currentTime = offset;
+      }
+      if (APP_STATE.currentTime >= APP_STATE.duration) {
+        APP_STATE.currentTime = 0;
+      }
+
+      // Create AudioBufferSourceNode
+      const source = APP_STATE.audioCtx.createBufferSource();
+      source.buffer = APP_STATE.audioBuffer;
+
+      // Connect to analyser and destination
+      source.connect(APP_STATE.analyserNode);
+      APP_STATE.analyserNode.connect(APP_STATE.audioCtx.destination);
+
+      source.start(0, APP_STATE.currentTime);
+      APP_STATE.audioSourceNode = source;
+      APP_STATE.startedAtAudioTime = APP_STATE.audioCtx.currentTime;
+      APP_STATE.startTimeOffset = APP_STATE.currentTime;
+      APP_STATE.isPlaying = true;
+
+      playToggleBtn.textContent = '⏸️ 一時停止';
+      playToggleBtn.classList.remove('toy-btn-pink');
+      playToggleBtn.classList.add('toy-btn-purple');
+
+      source.onended = function() {
+        if (APP_STATE.isPlaying && !APP_STATE.isExporting) {
+          // If ended naturally
+          if (APP_STATE.audioCtx.currentTime - APP_STATE.startedAtAudioTime >= (APP_STATE.duration - APP_STATE.startTimeOffset - 0.2)) {
+            stopPlayback();
+          }
+        }
+      };
+    }
+
+    function pausePlayback() {
+      if (!APP_STATE.isPlaying) return;
+      if (APP_STATE.audioSourceNode) {
+        try { APP_STATE.audioSourceNode.stop(); } catch(e){}
+        APP_STATE.audioSourceNode.disconnect();
+        APP_STATE.audioSourceNode = null;
+      }
+      APP_STATE.currentTime = APP_STATE.startTimeOffset + (APP_STATE.audioCtx.currentTime - APP_STATE.startedAtAudioTime);
+      APP_STATE.isPlaying = false;
+      playToggleBtn.textContent = '▶️ 再生する';
+      playToggleBtn.classList.remove('toy-btn-purple');
+      playToggleBtn.classList.add('toy-btn-pink');
+    }
+
+    function stopPlayback() {
+      pausePlayback();
+      APP_STATE.currentTime = 0;
+      updateTimeSliderUI();
+    }
+
+    function onSeekSlider(val) {
+      const targetTime = (parseFloat(val) / 100) * APP_STATE.duration;
+      APP_STATE.currentTime = targetTime;
+      if (APP_STATE.isPlaying) {
+        startPlayback(targetTime);
+      } else {
+        updateTimeSliderUI();
+      }
+    }
+
+    function updateTimeSliderUI() {
+      const dur = APP_STATE.duration || 1;
+      const progress = (APP_STATE.currentTime / dur) * 100;
+      timeSlider.value = progress;
+      currentTimeLabel.textContent = formatTime(APP_STATE.currentTime);
+      totalTimeLabel.textContent = formatTime(APP_STATE.duration);
+      highlightCurrentTimelineItem();
+    }
+
+    function formatTime(sec) {
+      if (!sec || isNaN(sec)) return '0:00';
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    /* =========================================================================
+       LYRICS & AUTO-SYNC ENGINE
+       ========================================================================= */
+    function autoSyncLyrics() {
+      const text = lyricsInput.value.trim();
+      if (!text) {
+        APP_STATE.lyrics = [];
+        renderTimelineList();
+        return;
+      }
+
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      if (lines.length === 0) return;
+
+      const dur = APP_STATE.duration || 30;
+      // Leave slight intro and outro cushion
+      const introPad = Math.min(1.0, dur * 0.05);
+      const usableDuration = Math.max(2.0, dur - introPad - 1.0);
+      const step = usableDuration / lines.length;
+
+      const synced = lines.map((line, index) => {
+        const start = introPad + index * step;
+        const end = start + step;
+        const layouts = ['horizontal', 'vertical', 'diagonal'];
+        const randomLayout = layouts[index % layouts.length];
+        return {
+          text: line,
+          start: start,
+          end: end,
+          layoutOverride: randomLayout
+        };
+      });
+
+      APP_STATE.lyrics = synced;
+      renderTimelineList();
+    }
+
+    function renderTimelineList() {
+      timelineList.innerHTML = '';
+      APP_STATE.lyrics.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = 'timeline-item';
+        div.id = `timeline-item-${index}`;
+        div.onclick = () => {
+          APP_STATE.currentTime = item.start;
+          if (APP_STATE.isPlaying) {
+            startPlayback(item.start);
+          } else {
+            updateTimeSliderUI();
+          }
+        };
+
+        div.innerHTML = `
+          <span class="timeline-badge">${formatTime(item.start)}</span>
+          <span class="timeline-text">${item.text}</span>
+        `;
+        timelineList.appendChild(div);
+      });
+      highlightCurrentTimelineItem();
+    }
+
+    function highlightCurrentTimelineItem() {
+      const cur = APP_STATE.currentTime;
+      APP_STATE.lyrics.forEach((item, index) => {
+        const el = document.getElementById(`timeline-item-${index}`);
+        if (el) {
+          if (cur >= item.start && cur < item.end) {
+            el.classList.add('active');
+          } else {
+            el.classList.remove('active');
+          }
+        }
+      });
+    }
+
+    /* =========================================================================
+       PRESET PICKERS & GACHA
+       ========================================================================= */
+    function initPillControls() {
+      // 1. Genres
+      genreGrid.innerHTML = '';
+      GENRES.forEach(g => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `pill-choice ${APP_STATE.genre === g.id ? 'selected' : ''}`;
+        btn.id = `genre-btn-${g.id}`;
+        btn.innerHTML = `<span class="icon">${g.icon}</span><span>${g.name}</span>`;
+        btn.onclick = () => setGenre(g.id);
+        genreGrid.appendChild(btn);
+      });
+
+      // 2. Layouts
+      layoutGrid.innerHTML = '';
+      LAYOUTS.forEach(l => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `pill-choice ${APP_STATE.layout === l.id ? 'selected' : ''}`;
+        btn.id = `layout-btn-${l.id}`;
+        btn.innerHTML = `<span>${l.name}</span>`;
+        btn.onclick = () => setLayout(l.id);
+        layoutGrid.appendChild(btn);
+      });
+
+      // 3. Font Sizes
+      fontSizeGrid.innerHTML = '';
+      FONT_SIZES.forEach(s => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `pill-choice ${APP_STATE.fontSize === s.id ? 'selected' : ''}`;
+        btn.id = `fontsize-btn-${s.id}`;
+        btn.innerHTML = `<span>${s.name}</span>`;
+        btn.onclick = () => setFontSize(s.id);
+        fontSizeGrid.appendChild(btn);
+      });
+
+      // 4. Effects
+      effectGrid.innerHTML = '';
+      SHAPE_EFFECTS.forEach(e => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `pill-choice ${APP_STATE.effect === e.id ? 'selected' : ''}`;
+        btn.id = `effect-btn-${e.id}`;
+        btn.innerHTML = `<span>${e.name}</span>`;
+        btn.onclick = () => setEffect(e.id);
+        effectGrid.appendChild(btn);
+      });
+    }
+
+    function setGenre(id) {
+      APP_STATE.genre = id;
+      document.querySelectorAll('#genreGrid .pill-choice').forEach(b => b.classList.remove('selected'));
+      const activeBtn = document.getElementById(`genre-btn-${id}`);
+      if (activeBtn) activeBtn.classList.add('selected');
+      const found = GENRES.find(g => g.id === id);
+      if (found) document.getElementById('currentGenreLabel').textContent = found.name;
+    }
+
+    function setLayout(id) {
+      APP_STATE.layout = id;
+      document.querySelectorAll('#layoutGrid .pill-choice').forEach(b => b.classList.remove('selected'));
+      const activeBtn = document.getElementById(`layout-btn-${id}`);
+      if (activeBtn) activeBtn.classList.add('selected');
+    }
+
+    function setFontSize(id) {
+      APP_STATE.fontSize = id;
+      document.querySelectorAll('#fontSizeGrid .pill-choice').forEach(b => b.classList.remove('selected'));
+      const activeBtn = document.getElementById(`fontsize-btn-${id}`);
+      if (activeBtn) activeBtn.classList.add('selected');
+    }
+
+    function setEffect(id) {
+      APP_STATE.effect = id;
+      document.querySelectorAll('#effectGrid .pill-choice').forEach(b => b.classList.remove('selected'));
+      const activeBtn = document.getElementById(`effect-btn-${id}`);
+      if (activeBtn) activeBtn.classList.add('selected');
+      const found = SHAPE_EFFECTS.find(e => e.id === id);
+      if (found) document.getElementById('currentEffectLabel').textContent = found.name;
+    }
+
+    function setAspectRatio(ratio) {
+      APP_STATE.aspectRatio = ratio;
+      const btn916 = document.getElementById('btnRatio916');
+      const btn169 = document.getElementById('btnRatio169');
+
+      if (ratio === '9:16') {
+        APP_STATE.canvasWidth = 720;
+        APP_STATE.canvasHeight = 1280;
+        canvas.width = 720;
+        canvas.height = 1280;
+        canvasBox.classList.remove('ratio-16-9');
+        btn916.classList.add('active');
+        btn169.classList.remove('active');
+      } else {
+        APP_STATE.canvasWidth = 1280;
+        APP_STATE.canvasHeight = 720;
+        canvas.width = 1280;
+        canvas.height = 720;
+        canvasBox.classList.add('ratio-16-9');
+        btn169.classList.add('active');
+        btn916.classList.remove('active');
+      }
+    }
+
+    /* =========================================================================
+       🎰 OMAKASE GACHA (THE HIGHLIGHT FEATURE)
+       ========================================================================= */
+    function spinGacha() {
+      // 1. Play Gacha Fanfare sound
+      playSfx('gacha');
+
+      // 2. Confetti Explosion
+      if (window.confetti) {
+        confetti({
+          particleCount: 80,
+          spread: 75,
+          origin: { y: 0.6 }
+        });
+      }
+
+      // 3. Screen shake on preview container
+      const preview = document.getElementById('previewContainer');
+      preview.classList.remove('shake-effect');
+      void preview.offsetWidth; // trigger reflow
+      preview.classList.add('shake-effect');
+      setTimeout(() => preview.classList.remove('shake-effect'), 500);
+
+      // 4. Randomize parameters
+      const randomGenre = GENRES[Math.floor(Math.random() * GENRES.length)].id;
+      const randomLayout = LAYOUTS[Math.floor(Math.random() * LAYOUTS.length)].id;
+      const randomFontSize = FONT_SIZES[Math.floor(Math.random() * FONT_SIZES.length)].id;
+      const randomEffect = SHAPE_EFFECTS[Math.floor(Math.random() * SHAPE_EFFECTS.length)].id;
+
+      setGenre(randomGenre);
+      setLayout(randomLayout);
+      setFontSize(randomFontSize);
+      setEffect(randomEffect);
+
+      // Auto start playback if paused so user can immediately feel the change!
+      if (!APP_STATE.isPlaying) {
+        startPlayback();
+      }
+    }
+
+    /* =========================================================================
+       TAP STAMPS & RHYTHM PARTICLES
+       ========================================================================= */
+    function triggerStamp(type, x = null, y = null) {
+      playSfx(type);
+
+      const targetX = x !== null ? x : APP_STATE.canvasWidth / 2 + (Math.random() - 0.5) * 200;
+      const targetY = y !== null ? y : APP_STATE.canvasHeight / 2 + (Math.random() - 0.5) * 200;
+
+      const particles = [];
+      const count = type === 'firework' ? 24 : 14;
+
+      for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 / count) * i + Math.random() * 0.3;
+        const speed = 4 + Math.random() * 12;
+        particles.push({
+          x: targetX,
+          y: targetY,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          alpha: 1.0,
+          size: 8 + Math.random() * 14,
+          color: getRandomToyColor()
+        });
+      }
+
+      let emoji = '🌸';
+      if (type === 'spark') emoji = '⚡';
+      if (type === 'heart') emoji = '💖';
+      if (type === 'firework') emoji = '🎆';
+
+      APP_STATE.stamps.push({
+        type: type,
+        emoji: emoji,
+        x: targetX,
+        y: targetY,
+        scale: 0.2,
+        maxScale: 2.2,
+        alpha: 1.0,
+        particles: particles,
+        createdAt: performance.now()
+      });
+    }
+
+    function getRandomToyColor() {
+      const colors = ['#ff4071', '#ffc107', '#3bb2f6', '#2ecc71', '#a855f7', '#ffffff', '#ff8833'];
+      return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    // Tap directly on canvas
+    canvas.addEventListener('pointerdown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = APP_STATE.canvasWidth / rect.width;
+      const scaleY = APP_STATE.canvasHeight / rect.height;
+      const tapX = (e.clientX - rect.left) * scaleX;
+      const tapY = (e.clientY - rect.top) * scaleY;
+
+      const stampTypes = ['flower', 'spark', 'heart', 'firework'];
+      const chosen = stampTypes[Math.floor(Math.random() * stampTypes.length)];
+      triggerStamp(chosen, tapX, tapY);
+    });
+
+    /* =========================================================================
+       IMAGE SLIDESHOW UPLOADER
+       ========================================================================= */
+    function handleImageUpload(event) {
+      const files = Array.from(event.target.files);
+      if (!files.length) return;
+
+      const remainingSlots = 15 - APP_STATE.images.length;
+      if (remainingSlots <= 0) {
+        alert('画像は最大15枚までです！');
+        return;
+      }
+
+      const filesToLoad = files.slice(0, remainingSlots);
+
+      filesToLoad.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            APP_STATE.images.push(img);
+            updateImageThumbnailsUI();
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function removeImage(index) {
+      APP_STATE.images.splice(index, 1);
+      updateImageThumbnailsUI();
+    }
+
+    function updateImageThumbnailsUI() {
+      imgCountBadge.textContent = `${APP_STATE.images.length} / 15枚`;
+      imageThumbnailsRow.innerHTML = '';
+
+      APP_STATE.images.forEach((img, idx) => {
+        const item = document.createElement('div');
+        item.className = 'img-thumb-item';
+        item.innerHTML = `
+          <img src="${img.src}" alt="img-${idx}">
+          <button type="button" class="img-thumb-remove" onclick="removeImage(${idx})">✕</button>
+        `;
+        imageThumbnailsRow.appendChild(item);
+      });
+    }
+
+    /* =========================================================================
+       CANVAS RENDERING ENGINE (60FPS)
+       ========================================================================= */
+    function renderLoop() {
+      // 1. Update playback timing
+      if (APP_STATE.isPlaying && !APP_STATE.isExporting) {
+        const nowAudio = APP_STATE.audioCtx ? APP_STATE.audioCtx.currentTime : 0;
+        APP_STATE.currentTime = APP_STATE.startTimeOffset + (nowAudio - APP_STATE.startedAtAudioTime);
+        if (APP_STATE.currentTime >= APP_STATE.duration) {
+          stopPlayback();
+        } else {
+          updateTimeSliderUI();
+        }
+      }
+
+      // 2. Audio Analysis (Beat, Bass, Treble)
+      if (APP_STATE.analyserNode && APP_STATE.isPlaying) {
+        APP_STATE.analyserNode.getByteFrequencyData(APP_STATE.frequencyData);
+        let bassSum = 0;
+        for (let i = 0; i < 8; i++) bassSum += APP_STATE.frequencyData[i];
+        APP_STATE.bassLevel = (bassSum / 8) / 255; // 0.0 ~ 1.0
+
+        let trebleSum = 0;
+        for (let i = 24; i < 48; i++) trebleSum += APP_STATE.frequencyData[i];
+        APP_STATE.trebleLevel = (trebleSum / 24) / 255;
+
+        let totalSum = 0;
+        for (let i = 0; i < 64; i++) totalSum += APP_STATE.frequencyData[i];
+        APP_STATE.volumeLevel = (totalSum / 64) / 255;
+      } else {
+        // Subtle simulated idle beat
+        const t = performance.now() / 1000;
+        APP_STATE.bassLevel = 0.15 + 0.1 * Math.sin(t * 4);
+        APP_STATE.volumeLevel = 0.1;
+      }
+
+      // 3. Draw Frame
+      drawVideoFrame(ctx, APP_STATE.currentTime);
+
+      requestAnimationFrame(renderLoop);
+    }
+
+    function drawVideoFrame(c, timeSec) {
+      const w = APP_STATE.canvasWidth;
+      const h = APP_STATE.canvasHeight;
+      c.save();
+
+      // Screen Shake on heavy bass / impact font
+      const currentFontSizeCfg = FONT_SIZES.find(s => s.id === APP_STATE.fontSize) || FONT_SIZES[1];
+      if (currentFontSizeCfg.shake && APP_STATE.bassLevel > 0.6) {
+        const shakeMag = (APP_STATE.bassLevel - 0.5) * 16;
+        c.translate((Math.random() - 0.5) * shakeMag, (Math.random() - 0.5) * shakeMag);
+      }
+
+      // -------------------------------------------------------------
+      // LAYER 1: Background (Images Slideshow OR Dynamic Gradient)
+      // -------------------------------------------------------------
+      c.clearRect(0, 0, w, h);
+      const currentGenreCfg = GENRES.find(g => g.id === APP_STATE.genre) || GENRES[1];
+
+      if (APP_STATE.images.length > 0) {
+        // Change image every ~3 seconds or on beat
+        const imgInterval = 3.2;
+        const imgIndex = Math.floor(timeSec / imgInterval) % APP_STATE.images.length;
+        const nextImgIndex = (imgIndex + 1) % APP_STATE.images.length;
+        const transFrac = (timeSec % imgInterval) / imgInterval;
+
+        const currentImg = APP_STATE.images[imgIndex];
+        const nextImg = APP_STATE.images[nextImgIndex];
+
+        // Draw current image with Ken Burns subtle zoom
+        const zoom = 1.0 + (transFrac * 0.08);
+        drawCoverImage(c, currentImg, w, h, zoom);
+
+        // Crossfade to next image near boundary
+        if (transFrac > 0.75 && APP_STATE.images.length > 1) {
+          const fadeAlpha = (transFrac - 0.75) / 0.25;
+          c.save();
+          c.globalAlpha = fadeAlpha;
+          drawCoverImage(c, nextImg, w, h, 1.0);
+          c.restore();
+        }
+
+        // Dark/Color Overlay for text readability
+        c.fillStyle = 'rgba(10, 8, 20, 0.42)';
+        c.fillRect(0, 0, w, h);
+      } else {
+        // Dynamic Genre Gradient Background
+        const grad = c.createLinearGradient(0, 0, w, h);
+        const colors = currentGenreCfg.bgGradient;
+        grad.addColorStop(0, colors[0]);
+        grad.addColorStop(1, colors[colors.length - 1]);
+        c.fillStyle = grad;
+        c.fillRect(0, 0, w, h);
+      }
+
+      // -------------------------------------------------------------
+      // LAYER 2: Motion Shapes Effects (8 Types)
+      // -------------------------------------------------------------
+      drawShapeEffects(c, timeSec, w, h);
+
+      // -------------------------------------------------------------
+      // LAYER 3: Lyrics Motion Rendering
+      // -------------------------------------------------------------
+      drawCurrentLyrics(c, timeSec, w, h, currentGenreCfg, currentFontSizeCfg);
+
+      // -------------------------------------------------------------
+      // LAYER 4: Tap / Rhythm Stamps
+      // -------------------------------------------------------------
+      drawStamps(c);
+
+      c.restore();
+    }
+
+    function drawCoverImage(c, img, w, h, zoom = 1.0) {
+      if (!img || !img.complete) return;
+      const imgRatio = img.width / img.height;
+      const canvasRatio = w / h;
+      let drawW, drawH;
+
+      if (imgRatio > canvasRatio) {
+        drawH = h * zoom;
+        drawW = drawH * imgRatio;
+      } else {
+        drawW = w * zoom;
+        drawH = drawW / imgRatio;
+      }
+      const dx = (w - drawW) / 2;
+      const dy = (h - drawH) / 2;
+      c.drawImage(img, dx, dy, drawW, drawH);
+    }
+
+    function drawShapeEffects(c, t, w, h) {
+      const effect = APP_STATE.effect;
+      if (effect === 'none') return;
+
+      c.save();
+      const bass = APP_STATE.bassLevel;
+
+      if (effect === 'bubble' || effect === 'mix') {
+        // Pop Bubbles
+        c.fillStyle = 'rgba(255, 255, 255, 0.22)';
+        for (let i = 0; i < 14; i++) {
+          const bx = (Math.sin(i * 1.5 + t * 0.8) * 0.4 + 0.5) * w;
+          const by = ((i * 120 - t * 90) % (h + 100) + (h + 100)) % (h + 100) - 50;
+          const r = (24 + Math.sin(i + t * 2) * 8) * (1 + bass * 0.4);
+          c.beginPath();
+          c.arc(bx, by, Math.max(2, r), 0, Math.PI * 2);
+          c.fill();
+        }
+      }
+
+      if (effect === 'rings' || effect === 'mix') {
+        // Neon Pulsing Rings
+        c.lineWidth = 4 + bass * 12;
+        c.strokeStyle = `rgba(255, 94, 126, ${0.3 + bass * 0.5})`;
+        for (let i = 1; i <= 4; i++) {
+          const ringR = ((t * 120 + i * 160) % (Math.max(w, h) * 0.75));
+          c.beginPath();
+          c.arc(w / 2, h / 2, ringR, 0, Math.PI * 2);
+          c.stroke();
+        }
+      }
+
+      if (effect === 'flow' || effect === 'mix') {
+        // Geometric Flow Floating Rectangles
+        c.strokeStyle = 'rgba(59, 178, 246, 0.35)';
+        c.lineWidth = 3;
+        for (let i = 0; i < 10; i++) {
+          const fx = ((i * 150 + t * 60) % (w + 100)) - 50;
+          const fy = ((Math.sin(i + t) * 0.3 + 0.5) * h);
+          const size = 30 + (i % 4) * 15;
+          c.save();
+          c.translate(fx, fy);
+          c.rotate(t + i);
+          c.strokeRect(-size / 2, -size / 2, size, size);
+          c.restore();
+        }
+      }
+
+      if (effect === 'speed' || effect === 'mix') {
+        // Speed Lines (Manga / Anime Action)
+        if (bass > 0.35) {
+          c.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+          c.lineWidth = 2 + bass * 4;
+          for (let i = 0; i < 18; i++) {
+            const angle = (Math.PI * 2 / 18) * i + (Math.random() - 0.5) * 0.1;
+            const len = (Math.min(w, h) * 0.4) + Math.random() * 150;
+            const startR = len * 0.5;
+            c.beginPath();
+            c.moveTo(w / 2 + Math.cos(angle) * startR, h / 2 + Math.sin(angle) * startR);
+            c.lineTo(w / 2 + Math.cos(angle) * len, h / 2 + Math.sin(angle) * len);
+            c.stroke();
+          }
+        }
+      }
+
+      if (effect === 'grid' || effect === 'mix') {
+        // Polygon Grid Horizon (Synthwave feel)
+        c.strokeStyle = 'rgba(168, 85, 247, 0.3)';
+        c.lineWidth = 2;
+        const gridSize = 60;
+        const offsetY = (t * 40) % gridSize;
+        for (let y = h / 2; y <= h; y += gridSize) {
+          c.beginPath();
+          c.moveTo(0, y + offsetY);
+          c.lineTo(w, y + offsetY);
+          c.stroke();
+        }
+        for (let x = 0; x <= w; x += gridSize) {
+          c.beginPath();
+          c.moveTo(x, h / 2);
+          c.lineTo(x, h);
+          c.stroke();
+        }
+      }
+
+      if (effect === 'star' || effect === 'mix') {
+        // Star Shower Particles
+        c.fillStyle = '#ffcf24';
+        for (let i = 0; i < 20; i++) {
+          const sx = (i * 73 + t * 40) % w;
+          const sy = (i * 97 + t * 120) % h;
+          const starSize = (4 + (i % 3) * 3) * (1 + bass * 0.5);
+          drawStar(c, sx, sy, starSize);
+        }
+      }
+
+      c.restore();
+    }
+
+    function drawStar(c, cx, cy, r) {
+      c.save();
+      c.beginPath();
+      for (let i = 0; i < 5; i++) {
+        c.lineTo(Math.cos((18 + i * 72) * Math.PI / 180) * r + cx,
+                 -Math.sin((18 + i * 72) * Math.PI / 180) * r + cy);
+        c.lineTo(Math.cos((54 + i * 72) * Math.PI / 180) * (r / 2) + cx,
+                 -Math.sin((54 + i * 72) * Math.PI / 180) * (r / 2) + cy);
+      }
+      c.closePath();
+      c.fill();
+      c.restore();
+    }
+
+    function drawCurrentLyrics(c, timeSec, w, h, genreCfg, sizeCfg) {
+      // Find matching lyric line
+      const activeLine = APP_STATE.lyrics.find(l => timeSec >= l.start && timeSec < l.end);
+      if (!activeLine) return;
+
+      const progress = (timeSec - activeLine.start) / (activeLine.end - activeLine.start);
+      // Intro bounce animation
+      const animScale = progress < 0.2 ? Math.min(1.0, progress / 0.2 * 1.15) : 1.0;
+
+      // Determine Layout
+      let currentLayout = APP_STATE.layout;
+      if (currentLayout === 'mix') {
+        currentLayout = activeLine.layoutOverride || 'horizontal';
+      }
+
+      c.save();
+
+      // Configure font
+      const baseFontSize = (APP_STATE.aspectRatio === '9:16' ? 62 : 68) * sizeCfg.scale;
+      c.font = `900 ${baseFontSize}px ${genreCfg.font}`;
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+
+      // Beat scale pulse
+      const beatPulse = 1.0 + (APP_STATE.bassLevel * 0.12);
+      const totalScale = animScale * beatPulse;
+
+      // Glow setting
+      if (genreCfg.glow) {
+        c.shadowColor = genreCfg.glowColor;
+        c.shadowBlur = 24 + APP_STATE.bassLevel * 30;
+      }
+
+      const text = activeLine.text;
+
+      if (currentLayout === 'horizontal') {
+        c.translate(w / 2, h / 2);
+        c.scale(totalScale, totalScale);
+
+        // Slight wavy motion
+        const waveY = Math.sin(timeSec * 6) * 12;
+        c.translate(0, waveY);
+
+        renderStrokedText(c, text, 0, 0, genreCfg);
+
+      } else if (currentLayout === 'vertical') {
+        // Japanese Tate-gaki
+        c.translate(w / 2, h / 2);
+        c.scale(totalScale, totalScale);
+
+        const chars = Array.from(text);
+        const charSpacing = baseFontSize * 1.08;
+        const totalHeight = chars.length * charSpacing;
+        const startY = -totalHeight / 2 + charSpacing / 2;
+
+        chars.forEach((ch, idx) => {
+          const cy = startY + idx * charSpacing;
+          const cx = Math.sin(timeSec * 5 + idx * 0.4) * 8; // slight jitter
+          renderStrokedText(c, ch, cx, cy, genreCfg);
+        });
+
+      } else if (currentLayout === 'diagonal') {
+        c.translate(w / 2, h / 2);
+        c.rotate(-18 * Math.PI / 180);
+        c.scale(totalScale, totalScale);
+
+        const waveX = Math.cos(timeSec * 5) * 15;
+        c.translate(waveX, 0);
+
+        renderStrokedText(c, text, 0, 0, genreCfg);
+      }
+
+      c.restore();
+    }
+
+    function renderStrokedText(c, text, x, y, genreCfg) {
+      c.lineWidth = genreCfg.strokeWidth;
+      c.strokeStyle = genreCfg.strokeColor;
+      c.lineJoin = 'round';
+      c.miterLimit = 2;
+      c.strokeText(text, x, y);
+
+      // Inner fill
+      c.fillStyle = genreCfg.textColor;
+      c.fillText(text, x, y);
+    }
+
+    function drawStamps(c) {
+      const now = performance.now();
+      for (let i = APP_STATE.stamps.length - 1; i >= 0; i--) {
+        const s = APP_STATE.stamps[i];
+        const age = (now - s.createdAt) / 1000;
+
+        if (age > 1.2) {
+          APP_STATE.stamps.splice(i, 1);
+          continue;
+        }
+
+        const alpha = Math.max(0, 1.0 - (age / 1.2));
+        const scale = Math.min(s.maxScale, s.scale + age * 2.8);
+
+        c.save();
+        c.globalAlpha = alpha;
+
+        // Draw central stamp emoji
+        c.font = `${Math.floor(48 * scale)}px sans-serif`;
+        c.textAlign = 'center';
+        c.textBaseline = 'middle';
+        c.fillText(s.emoji, s.x, s.y);
+
+        // Draw burst particles
+        s.particles.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.35; // gravity
+          c.fillStyle = p.color;
+          c.beginPath();
+          c.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
+          c.fill();
+        });
+
+        c.restore();
+      }
+    }
+
+    /* =========================================================================
+       MP4 / WEBM VIDEO EXPORT & RECORDER
+       ========================================================================= */
+    async function startExportVideo() {
+      initAudioContext();
+      if (!APP_STATE.audioBuffer) {
+        loadDemoSynthesizerTrack();
+      }
+
+      pausePlayback();
+      APP_STATE.isExporting = true;
+      APP_STATE.currentTime = 0;
+
+      // Show Export Modal
+      exportModal.classList.add('show');
+      exportProgressBar.style.width = '0%';
+      exportProgressText.textContent = '準備中...';
+      document.getElementById('exportModalTitle').textContent = '🎥 動画を作成中...';
+      document.getElementById('exportModalDesc').textContent = '音楽とアニメーションを1コマずつ最高画質で録画しています。そのままお待ちください！';
+      document.getElementById('exportProgressBarBox').style.display = 'block';
+      exportedVideoPreview.style.display = 'none';
+      modalDownloadBtn.style.display = 'none';
+      modalCancelBtn.textContent = 'キャンセル';
+
+      // 1. Setup Canvas Stream (30fps)
+      const canvasStream = canvas.captureStream(30);
+
+      // 2. Setup Audio Stream
+      APP_STATE.audioStreamDest = APP_STATE.audioCtx.createMediaStreamDestination();
+      const exportAudioSource = APP_STATE.audioCtx.createBufferSource();
+      exportAudioSource.buffer = APP_STATE.audioBuffer;
+      exportAudioSource.connect(APP_STATE.analyserNode);
+      exportAudioSource.connect(APP_STATE.audioStreamDest);
+      exportAudioSource.connect(APP_STATE.audioCtx.destination); // monitor sound
+
+      // 3. Combined MediaStream
+      const combinedStream = new MediaStream([
+        ...canvasStream.getVideoTracks(),
+        ...APP_STATE.audioStreamDest.stream.getAudioTracks()
+      ]);
+
+      // Determine best MIME type
+      const mimeTypes = [
+        'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+        'video/mp4',
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm'
+      ];
+      let selectedMime = mimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || 'video/webm';
+      const isMp4 = selectedMime.includes('mp4');
+
+      APP_STATE.recordedChunks = [];
+      try {
+        APP_STATE.mediaRecorder = new MediaRecorder(combinedStream, {
+          mimeType: selectedMime,
+          videoBitsPerSecond: 6000000 // 6Mbps high quality
+        });
+      } catch (e) {
+        APP_STATE.mediaRecorder = new MediaRecorder(combinedStream);
+      }
+
+      APP_STATE.mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          APP_STATE.recordedChunks.push(e.data);
+        }
+      };
+
+      APP_STATE.mediaRecorder.onstop = () => {
+        onRecordingComplete(isMp4);
+      };
+
+      // Start recording
+      APP_STATE.mediaRecorder.start(200); // 200ms slice
+      exportAudioSource.start(0);
+      APP_STATE.audioSourceNode = exportAudioSource;
+      APP_STATE.startedAtAudioTime = APP_STATE.audioCtx.currentTime;
+      APP_STATE.startTimeOffset = 0;
+      APP_STATE.isPlaying = true;
+
+      // Track progress
+      const exportTimer = setInterval(() => {
+        if (!APP_STATE.isExporting) {
+          clearInterval(exportTimer);
+          return;
+        }
+
+        const elapsed = APP_STATE.audioCtx.currentTime - APP_STATE.startedAtAudioTime;
+        APP_STATE.currentTime = elapsed;
+        const progress = Math.min(100, Math.floor((elapsed / APP_STATE.duration) * 100));
+        exportProgressBar.style.width = `${progress}%`;
+        exportProgressText.textContent = `${progress}% (${formatTime(elapsed)} / ${formatTime(APP_STATE.duration)})`;
+
+        if (elapsed >= APP_STATE.duration) {
+          clearInterval(exportTimer);
+          if (APP_STATE.mediaRecorder && APP_STATE.mediaRecorder.state === 'recording') {
+            APP_STATE.mediaRecorder.stop();
+          }
+          if (exportAudioSource) {
+            try { exportAudioSource.stop(); } catch(e){}
+          }
+        }
+      }, 100);
+    }
+
+    function onRecordingComplete(isMp4) {
+      APP_STATE.isExporting = false;
+      APP_STATE.isPlaying = false;
+      APP_STATE.currentTime = 0;
+      updateTimeSliderUI();
+
+      const blobType = isMp4 ? 'video/mp4' : 'video/webm';
+      const blob = new Blob(APP_STATE.recordedChunks, { type: blobType });
+      const videoUrl = URL.createObjectURL(blob);
+
+      // Display Preview & Download Link in Modal
+      document.getElementById('exportModalTitle').textContent = '🎉 かんせい！動画ができました！';
+      document.getElementById('exportModalDesc').textContent = '下のボタンを押してスマホやPCに保存してね！';
+      document.getElementById('exportProgressBarBox').style.display = 'none';
+      exportProgressText.textContent = '完成！';
+
+      exportedVideoPreview.src = videoUrl;
+      exportedVideoPreview.style.display = 'block';
+
+      modalDownloadBtn.href = videoUrl;
+      modalDownloadBtn.download = isMp4 ? 'toy_lyric_video.mp4' : 'toy_lyric_video.webm';
+      modalDownloadBtn.style.display = 'inline-flex';
+      modalCancelBtn.textContent = 'とじる';
+
+      // Confetti celebration
+      if (window.confetti) {
+        confetti({ particleCount: 120, spread: 90, origin: { y: 0.5 } });
+      }
+    }
+
+    function cancelExport() {
+      if (APP_STATE.isExporting) {
+        APP_STATE.isExporting = false;
+        if (APP_STATE.mediaRecorder && APP_STATE.mediaRecorder.state === 'recording') {
+          APP_STATE.mediaRecorder.stop();
+        }
+        stopPlayback();
+      }
+      exportModal.classList.remove('show');
+    }
+
+    /* =========================================================================
+       INITIALIZATION
+       ========================================================================= */
+    window.addEventListener('DOMContentLoaded', () => {
+      initPillControls();
+      setAspectRatio('9:16');
+      loadDemoSynthesizerTrack();
+      requestAnimationFrame(renderLoop);
+    });
+
+  </script>
+</body>
+</html>

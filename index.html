@@ -802,8 +802,8 @@
     .timeline-preview {
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      max-height: 130px;
+      gap: 8px;
+      max-height: 240px;
       overflow-y: auto;
       margin-top: 10px;
       padding-right: 4px;
@@ -813,26 +813,43 @@
     .timeline-item {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 6px 10px;
-      border-radius: 12px;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 8px 10px;
+      border-radius: 14px;
       background: #faf6ee;
-      font-size: 0.78rem;
-      border: 1px solid #ede3d3;
+      font-size: 0.8rem;
+      border: 1.5px solid #ede3d3;
+      transition: all 0.12s ease;
     }
 
     .timeline-item.active {
-      background: #fce7f3;
+      background: #fdf2f8;
       border-color: #f472b6;
       font-weight: 900;
       color: #be185d;
+      box-shadow: 0 2px 8px rgba(244, 114, 182, 0.2);
+    }
+
+    .timeline-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+      min-width: 0;
+      cursor: pointer;
     }
 
     .timeline-badge {
-      font-size: 0.7rem;
+      font-size: 0.72rem;
       font-weight: 900;
-      color: #9385a3;
-      min-width: 38px;
+      color: #7c3aed;
+      background: #ede9fe;
+      padding: 2px 6px;
+      border-radius: 6px;
+      min-width: 44px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
     }
 
     .timeline-text {
@@ -840,6 +857,126 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      font-weight: 700;
+    }
+
+    .timeline-controls {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+
+    .time-adj-btn {
+      border: 1px solid #e2d7c5;
+      background: #fff;
+      color: #554466;
+      font-size: 0.7rem;
+      font-weight: 900;
+      padding: 3px 6px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 1.5px 0 #d5c8b4;
+      transition: all 0.1s;
+    }
+
+    .time-adj-btn:active {
+      transform: translateY(1px);
+      box-shadow: 0 0.5px 0 #d5c8b4;
+    }
+
+    .time-set-btn {
+      border: 1px solid #bbf7d0;
+      background: #f0fdf4;
+      color: #15803d;
+      font-size: 0.7rem;
+      font-weight: 900;
+      padding: 3px 6px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 1.5px 0 #86efac;
+      transition: all 0.1s;
+    }
+
+    .time-set-btn:active {
+      transform: translateY(1px);
+    }
+
+    /* Live Tap Recording Overlay on Preview */
+    .tap-rec-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(18, 14, 28, 0.78);
+      backdrop-filter: blur(4px);
+      z-index: 50;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      text-align: center;
+      gap: 12px;
+      border-radius: 20px;
+    }
+
+    .tap-rec-overlay.active {
+      display: flex;
+    }
+
+    .tap-rec-header {
+      color: #fde047;
+      font-size: 1.05rem;
+      font-weight: 900;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .tap-rec-current-line {
+      color: #ffffff;
+      font-size: 1.35rem;
+      font-weight: 900;
+      background: rgba(255, 255, 255, 0.12);
+      padding: 10px 16px;
+      border-radius: 16px;
+      border: 2px dashed #ff4071;
+      max-width: 90%;
+      word-break: break-all;
+    }
+
+    .tap-rec-hit-btn {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ff4071 0%, #ff6b8b 100%);
+      border: 5px solid #ffffff;
+      box-shadow: 0 8px 0 #a81c42, 0 10px 25px rgba(255, 64, 113, 0.5);
+      color: #ffffff;
+      font-size: 1.25rem;
+      font-weight: 900;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.08s ease;
+      animation: pulse-hit-btn 1.4s infinite ease-in-out;
+    }
+
+    @keyframes pulse-hit-btn {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.06); }
+    }
+
+    .tap-rec-hit-btn:active {
+      transform: scale(0.92) translateY(4px);
+      box-shadow: 0 2px 0 #a81c42;
+    }
+
+    .tap-rec-footer-hint {
+      color: #cbd5e1;
+      font-size: 0.78rem;
+      font-weight: 700;
     }
 
     /* Footer */
@@ -888,7 +1025,21 @@
       <!-- Canvas Frame -->
       <div class="canvas-container" id="canvasBox">
         <canvas id="videoCanvas" width="720" height="1280"></canvas>
-        <div class="tap-hint">👆 画面タップでスタンプが弾けるよ！</div>
+        <div class="tap-hint" id="normalTapHint">👆 画面タップでスタンプが弾けるよ！</div>
+
+        <!-- Live Tap Recording Overlay -->
+        <div class="tap-rec-overlay" id="tapRecOverlay">
+          <div class="tap-rec-header">🎙️ 歌に合わせてタップしてね！</div>
+          <div class="tap-rec-current-line" id="tapRecCurrentLine">準備中...</div>
+          <button type="button" class="tap-rec-hit-btn" id="tapRecHitBtn" onclick="onTapRecordHit()">
+            <span>👆</span>
+            <span>今ここ！</span>
+          </button>
+          <div class="tap-rec-footer-hint">（スペースキーでもポンポン進めます）</div>
+          <button type="button" class="toy-btn toy-btn-yellow" style="padding: 6px 14px; font-size: 0.8rem;" onclick="stopTapRecording()">
+            ⏹️ 記録を完了して戻る
+          </button>
+        </div>
       </div>
 
       <!-- Stamp / Rhythm Play Buttons -->
@@ -976,10 +1127,20 @@
 たのしい じかんの
 はじまりだ！</textarea>
 
-        <div class="sync-btn-bar">
-          <button type="button" class="toy-btn toy-btn-yellow" style="flex: 1; padding: 10px; font-size: 0.9rem;" onclick="autoSyncLyrics()">
-            🪄 魔法の自動同期！
+        <div class="sync-btn-bar" style="display:flex; flex-direction:column; gap:8px;">
+          <button type="button" class="toy-btn toy-btn-pink" style="width: 100%; padding: 12px; font-size: 1rem; box-shadow: 0 4px 0 var(--toy-pink-shadow);" onclick="startTapRecording()">
+            🎙️ 歌に合わせてタップ記録！（神同期モード）
           </button>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="toy-btn toy-btn-yellow" style="flex: 1; padding: 8px 10px; font-size: 0.85rem;" onclick="autoSyncLyrics()">
+              🪄 均等に自動割り当て
+            </button>
+          </div>
+        </div>
+
+        <div style="font-size:0.75rem; color:#8d7f99; font-weight:700; margin-top:8px; display:flex; justify-content:space-between; align-items:center;">
+          <span>📋 タイムライン（タップでジャンプ＆微調整）:</span>
+          <span style="color:#15803d; font-size:0.72rem;">[⏱️ここ!] [◀ 0.2s ▶] 対応</span>
         </div>
 
         <!-- Timeline preview items -->
@@ -1517,22 +1678,31 @@
       return `${m}:${s < 10 ? '0' : ''}${s}`;
     }
 
+    function formatTimePrecise(sec) {
+      if (!sec || isNaN(sec)) return '0:00.0';
+      const m = Math.floor(sec / 60);
+      const s = (sec % 60).toFixed(1);
+      return `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
     /* =========================================================================
        LYRICS & AUTO-SYNC ENGINE
        ========================================================================= */
-    function autoSyncLyrics() {
+    function getLyricsLinesFromInput() {
       const text = lyricsInput.value.trim();
-      if (!text) {
+      if (!text) return [];
+      return text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    }
+
+    function autoSyncLyrics() {
+      const lines = getLyricsLinesFromInput();
+      if (lines.length === 0) {
         APP_STATE.lyrics = [];
         renderTimelineList();
         return;
       }
 
-      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-      if (lines.length === 0) return;
-
       const dur = APP_STATE.duration || 30;
-      // Leave slight intro and outro cushion
       const introPad = Math.min(1.0, dur * 0.05);
       const usableDuration = Math.max(2.0, dur - introPad - 1.0);
       const step = usableDuration / lines.length;
@@ -1544,38 +1714,83 @@
         const randomLayout = layouts[index % layouts.length];
         return {
           text: line,
-          start: start,
-          end: end,
+          start: parseFloat(start.toFixed(2)),
+          end: parseFloat(end.toFixed(2)),
           layoutOverride: randomLayout
         };
       });
 
       APP_STATE.lyrics = synced;
       renderTimelineList();
+      playSfx('pop');
     }
 
     function renderTimelineList() {
       timelineList.innerHTML = '';
+      if (APP_STATE.lyrics.length === 0) {
+        timelineList.innerHTML = '<div style="color:#9385a3; font-size:0.8rem; text-align:center; padding:12px;">歌詞がまだありません</div>';
+        return;
+      }
+
       APP_STATE.lyrics.forEach((item, index) => {
         const div = document.createElement('div');
         div.className = 'timeline-item';
         div.id = `timeline-item-${index}`;
-        div.onclick = () => {
-          APP_STATE.currentTime = item.start;
-          if (APP_STATE.isPlaying) {
-            startPlayback(item.start);
-          } else {
-            updateTimeSliderUI();
-          }
-        };
 
         div.innerHTML = `
-          <span class="timeline-badge">${formatTime(item.start)}</span>
-          <span class="timeline-text">${item.text}</span>
+          <div class="timeline-left" onclick="jumpToTimeline(${index})">
+            <span class="timeline-badge">${formatTimePrecise(item.start)}</span>
+            <span class="timeline-text" title="${item.text}">${item.text}</span>
+          </div>
+          <div class="timeline-controls">
+            <button type="button" class="time-adj-btn" onclick="adjustLineTime(${index}, -0.2)" title="0.2秒早める">◀</button>
+            <button type="button" class="time-adj-btn" onclick="adjustLineTime(${index}, 0.2)" title="0.2秒遅らせる">▶</button>
+            <button type="button" class="time-set-btn" onclick="setLineStartTimeToCurrent(${index})" title="現在の再生位置を開始時間に設定">⏱️ここ!</button>
+          </div>
         `;
         timelineList.appendChild(div);
       });
       highlightCurrentTimelineItem();
+    }
+
+    function jumpToTimeline(index) {
+      const item = APP_STATE.lyrics[index];
+      if (!item) return;
+      APP_STATE.currentTime = item.start;
+      if (APP_STATE.isPlaying) {
+        startPlayback(item.start);
+      } else {
+        updateTimeSliderUI();
+      }
+    }
+
+    function adjustLineTime(index, delta) {
+      const item = APP_STATE.lyrics[index];
+      if (!item) return;
+      item.start = Math.max(0, parseFloat((item.start + delta).toFixed(2)));
+      // Keep next line end consistent if applicable
+      if (index > 0 && APP_STATE.lyrics[index - 1].end > item.start) {
+        APP_STATE.lyrics[index - 1].end = item.start;
+      }
+      if (item.end <= item.start) {
+        item.end = item.start + 1.0;
+      }
+      renderTimelineList();
+    }
+
+    function setLineStartTimeToCurrent(index) {
+      const item = APP_STATE.lyrics[index];
+      if (!item) return;
+      const cur = parseFloat(APP_STATE.currentTime.toFixed(2));
+      item.start = cur;
+      if (index > 0) {
+        APP_STATE.lyrics[index - 1].end = cur;
+      }
+      if (item.end <= item.start) {
+        item.end = cur + 1.5;
+      }
+      renderTimelineList();
+      playSfx('spark');
     }
 
     function highlightCurrentTimelineItem() {
@@ -1591,6 +1806,110 @@
         }
       });
     }
+
+    /* =========================================================================
+       🎙️ REAL-TIME TAP SYNC RECORDING ENGINE
+       ========================================================================= */
+    const TAP_REC = {
+      active: false,
+      currentIndex: 0,
+      lines: []
+    };
+
+    function startTapRecording() {
+      initAudioContext();
+      const lines = getLyricsLinesFromInput();
+      if (lines.length === 0) {
+        alert('まずは歌詞を入力してください！');
+        return;
+      }
+
+      TAP_REC.lines = lines;
+      TAP_REC.currentIndex = 0;
+      TAP_REC.active = true;
+
+      // Prepare lyrics array
+      APP_STATE.lyrics = lines.map(line => ({
+        text: line,
+        start: 0,
+        end: 9999,
+        layoutOverride: 'horizontal'
+      }));
+
+      // Show overlay
+      const overlay = document.getElementById('tapRecOverlay');
+      overlay.classList.add('active');
+      updateTapRecUI();
+
+      // Start music from beginning
+      startPlayback(0);
+      playSfx('gacha');
+    }
+
+    function updateTapRecUI() {
+      const lineEl = document.getElementById('tapRecCurrentLine');
+      const hitBtn = document.getElementById('tapRecHitBtn');
+      if (TAP_REC.currentIndex < TAP_REC.lines.length) {
+        lineEl.textContent = `${TAP_REC.currentIndex + 1}/${TAP_REC.lines.length}: ${TAP_REC.lines[TAP_REC.currentIndex]}`;
+        hitBtn.innerHTML = `<span>👆</span><span>今ここ！</span>`;
+      } else {
+        lineEl.textContent = '🎉 すべての行の記録が完了しました！';
+        hitBtn.innerHTML = `<span>✨</span><span>かんせい！</span>`;
+      }
+    }
+
+    function onTapRecordHit() {
+      if (!TAP_REC.active) return;
+
+      const nowTime = parseFloat(APP_STATE.currentTime.toFixed(2));
+      const idx = TAP_REC.currentIndex;
+
+      if (idx < TAP_REC.lines.length) {
+        // Record start time for current line
+        APP_STATE.lyrics[idx].start = nowTime;
+        // Previous line ends now
+        if (idx > 0) {
+          APP_STATE.lyrics[idx - 1].end = nowTime;
+        }
+
+        playSfx('spark');
+        // Visual stamp burst
+        triggerStamp('spark');
+
+        TAP_REC.currentIndex++;
+
+        if (TAP_REC.currentIndex >= TAP_REC.lines.length) {
+          // Finished all lines! Last line gets 3 seconds or until end of track
+          APP_STATE.lyrics[idx].end = Math.min(APP_STATE.duration, nowTime + 3.0);
+          updateTapRecUI();
+          setTimeout(() => {
+            stopTapRecording();
+            if (window.confetti) {
+              confetti({ particleCount: 70, spread: 60 });
+            }
+          }, 600);
+        } else {
+          updateTapRecUI();
+        }
+      } else {
+        stopTapRecording();
+      }
+    }
+
+    function stopTapRecording() {
+      TAP_REC.active = false;
+      const overlay = document.getElementById('tapRecOverlay');
+      overlay.classList.remove('active');
+      renderTimelineList();
+    }
+
+    // Space key support for Tap Recording
+    window.addEventListener('keydown', (e) => {
+      if (TAP_REC.active && (e.code === 'Space' || e.code === 'Enter')) {
+        e.preventDefault();
+        onTapRecordHit();
+      }
+    });
 
     /* =========================================================================
        PRESET PICKERS & GACHA
@@ -2102,9 +2421,9 @@
       const activeLine = APP_STATE.lyrics.find(l => timeSec >= l.start && timeSec < l.end);
       if (!activeLine) return;
 
-      const progress = (timeSec - activeLine.start) / (activeLine.end - activeLine.start);
+      const progress = (timeSec - activeLine.start) / Math.max(0.1, activeLine.end - activeLine.start);
       // Intro bounce animation
-      const animScale = progress < 0.2 ? Math.min(1.0, progress / 0.2 * 1.15) : 1.0;
+      const animScale = progress < 0.2 ? Math.min(1.0, progress / 0.2 * 1.12) : 1.0;
 
       // Determine Layout
       let currentLayout = APP_STATE.layout;
@@ -2115,65 +2434,106 @@
       c.save();
 
       // Configure font
-      const baseFontSize = (APP_STATE.aspectRatio === '9:16' ? 62 : 68) * sizeCfg.scale;
+      const isPortrait = APP_STATE.aspectRatio === '9:16';
+      const baseFontSize = (isPortrait ? 64 : 70) * sizeCfg.scale;
       c.font = `900 ${baseFontSize}px ${genreCfg.font}`;
       c.textAlign = 'center';
       c.textBaseline = 'middle';
 
       // Beat scale pulse
-      const beatPulse = 1.0 + (APP_STATE.bassLevel * 0.12);
+      const beatPulse = 1.0 + (APP_STATE.bassLevel * 0.10);
       const totalScale = animScale * beatPulse;
 
       // Glow setting
       if (genreCfg.glow) {
         c.shadowColor = genreCfg.glowColor;
-        c.shadowBlur = 24 + APP_STATE.bassLevel * 30;
+        c.shadowBlur = 24 + APP_STATE.bassLevel * 25;
       }
 
       const text = activeLine.text;
 
       if (currentLayout === 'horizontal') {
-        c.translate(w / 2, h / 2);
-        c.scale(totalScale, totalScale);
+        // Measure text width and calculate auto-fit scale to prevent edge clipping
+        const textMetrics = c.measureText(text);
+        const textWidth = textMetrics.width;
+        const maxAllowedWidth = w * 0.82; // 82% of screen width safe margin
+        
+        let fitScale = 1.0;
+        if (textWidth > maxAllowedWidth) {
+          fitScale = maxAllowedWidth / textWidth;
+        }
 
-        // Slight wavy motion
-        const waveY = Math.sin(timeSec * 6) * 12;
+        // Combined scale with safety ceiling
+        let finalScale = totalScale * fitScale;
+        if (textWidth * finalScale > w * 0.88) {
+          finalScale = (w * 0.88) / textWidth;
+        }
+
+        c.translate(w / 2, h / 2);
+        c.scale(finalScale, finalScale);
+
+        // Subtle wavy motion
+        const waveY = Math.sin(timeSec * 5) * 10;
         c.translate(0, waveY);
 
-        renderStrokedText(c, text, 0, 0, genreCfg);
+        renderStrokedText(c, text, 0, 0, genreCfg, fitScale);
 
       } else if (currentLayout === 'vertical') {
-        // Japanese Tate-gaki
+        // Japanese Tate-gaki Auto-fit
+        const chars = Array.from(text);
+        let charSpacing = baseFontSize * 1.06;
+        let totalHeight = chars.length * charSpacing;
+        const maxAllowedHeight = h * 0.80; // 80% of screen height safe margin
+
+        let fitScale = 1.0;
+        if (totalHeight > maxAllowedHeight) {
+          fitScale = maxAllowedHeight / totalHeight;
+        }
+
+        const effectiveFontSize = baseFontSize * fitScale;
+        charSpacing = effectiveFontSize * 1.06;
+        totalHeight = chars.length * charSpacing;
+
+        c.font = `900 ${effectiveFontSize}px ${genreCfg.font}`;
         c.translate(w / 2, h / 2);
         c.scale(totalScale, totalScale);
 
-        const chars = Array.from(text);
-        const charSpacing = baseFontSize * 1.08;
-        const totalHeight = chars.length * charSpacing;
         const startY = -totalHeight / 2 + charSpacing / 2;
 
         chars.forEach((ch, idx) => {
           const cy = startY + idx * charSpacing;
-          const cx = Math.sin(timeSec * 5 + idx * 0.4) * 8; // slight jitter
-          renderStrokedText(c, ch, cx, cy, genreCfg);
+          const cx = Math.sin(timeSec * 4 + idx * 0.3) * 6; // subtle float jitter
+          renderStrokedText(c, ch, cx, cy, genreCfg, fitScale);
         });
 
       } else if (currentLayout === 'diagonal') {
+        // Diagonal layout auto-fit
+        const textMetrics = c.measureText(text);
+        const textWidth = textMetrics.width;
+        const maxAllowedWidth = Math.min(w, h) * 0.80;
+
+        let fitScale = 1.0;
+        if (textWidth > maxAllowedWidth) {
+          fitScale = maxAllowedWidth / textWidth;
+        }
+
+        let finalScale = totalScale * fitScale;
         c.translate(w / 2, h / 2);
         c.rotate(-18 * Math.PI / 180);
-        c.scale(totalScale, totalScale);
+        c.scale(finalScale, finalScale);
 
-        const waveX = Math.cos(timeSec * 5) * 15;
+        const waveX = Math.cos(timeSec * 4.5) * 12;
         c.translate(waveX, 0);
 
-        renderStrokedText(c, text, 0, 0, genreCfg);
+        renderStrokedText(c, text, 0, 0, genreCfg, fitScale);
       }
 
       c.restore();
     }
 
-    function renderStrokedText(c, text, x, y, genreCfg) {
-      c.lineWidth = genreCfg.strokeWidth;
+    function renderStrokedText(c, text, x, y, genreCfg, fitScale = 1.0) {
+      const strokeW = Math.max(3, genreCfg.strokeWidth * Math.min(1.0, fitScale * 1.1));
+      c.lineWidth = strokeW;
       c.strokeStyle = genreCfg.strokeColor;
       c.lineJoin = 'round';
       c.miterLimit = 2;

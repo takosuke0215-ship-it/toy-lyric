@@ -1128,16 +1128,32 @@
 はじまりだ！</textarea>
 
         <div class="sync-btn-bar" style="display:flex; flex-direction:column; gap:8px;">
-          <button type="button" class="toy-btn toy-btn-blue" id="btnAnalyzeSinging" style="width: 100%; padding: 12px; font-size: 1.05rem;" onclick="analyzeFullAudioSingingSync()">
-            🤖 歌声を全編分析して自動同期！（フルスキャン）
+          <button type="button" class="toy-btn" id="btnWhisperSync" style="width: 100%; padding: 13px; font-size: 1.05rem; background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%); color:#fff; box-shadow: 0 5px 0 #5b21b6;" onclick="startWhisperAISync()">
+            🧠 AI Whisperで歌唱同期！（自作曲・どんな曲もOK）
           </button>
           <div style="display:flex; gap:8px;">
-            <button type="button" class="toy-btn toy-btn-pink" style="flex: 1.4; padding: 10px 8px; font-size: 0.85rem;" onclick="startTapRecording()">
-              🎙️ 歌に合わせてタップ記録
+            <button type="button" class="toy-btn toy-btn-blue" id="btnAnalyzeSinging" style="flex: 1.2; padding: 10px 8px; font-size: 0.85rem;" onclick="analyzeFullAudioSingingSync()">
+              🤖 歌声波形スキャン（即時）
             </button>
-            <button type="button" class="toy-btn toy-btn-yellow" style="flex: 1; padding: 10px 8px; font-size: 0.85rem;" onclick="autoSyncLyrics()">
-              🪄 均等割り当て
+            <button type="button" class="toy-btn toy-btn-pink" style="flex: 1.2; padding: 10px 8px; font-size: 0.85rem;" onclick="startTapRecording()">
+              🎙️ タップ記録
             </button>
+            <button type="button" class="toy-btn toy-btn-yellow" style="flex: 0.9; padding: 10px 6px; font-size: 0.85rem;" onclick="autoSyncLyrics()">
+              🪄 均等
+            </button>
+          </div>
+        </div>
+
+        <!-- In-Browser Whisper AI Indicator -->
+        <div id="whisperAiIndicator" style="display:none; background:#faf5ff; border:2px solid #d8b4fe; border-radius:16px; padding:12px; margin-top:8px; text-align:center;">
+          <div style="font-size:0.86rem; font-weight:900; color:#6b21a8; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <span id="whisperAiStatusText">🧠 AIモデルを準備中（初回のみ約39MB）...</span>
+          </div>
+          <div class="progress-bar-wrap" style="height:12px; margin-top:8px; background:#f3e8ff; border-color:#d8b4fe;">
+            <div class="progress-fill" id="whisperAiProgressFill" style="width:0%; background:linear-gradient(90deg, #a855f7, #ec4899);"></div>
+          </div>
+          <div style="font-size:0.72rem; color:#86198f; font-weight:700; margin-top:6px;" id="whisperAiSubText">
+            ※ サーバーを使わずスマホ/PC内部だけでAIが歌声を聴き取っています
           </div>
         </div>
 
@@ -1705,6 +1721,157 @@
       const text = lyricsInput.value.trim();
       if (!text) return [];
       return text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    }
+
+    async function resampleAudioBufferTo16k(audioBuffer) {
+      const targetSampleRate = 16000;
+      const numTargetSamples = Math.ceil(audioBuffer.duration * targetSampleRate);
+      const offlineCtx = new OfflineAudioContext(1, numTargetSamples, targetSampleRate);
+      const source = offlineCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(offlineCtx.destination);
+      source.start(0);
+      const rendered = await offlineCtx.startRendering();
+      return rendered.getChannelData(0);
+    }
+
+    /* 🧠 IN-BROWSER WHISPER AI VOCAL TRANSCRIPTION & AUTO-SYNC */
+    let whisperPipelineInstance = null;
+
+    async function startWhisperAISync() {
+      initAudioContext();
+      if (!APP_STATE.audioBuffer) {
+        loadDemoSynthesizerTrack();
+      }
+
+      const lines = getLyricsLinesFromInput();
+      if (lines.length === 0) {
+        alert('まずは歌詞を入力してください！');
+        return;
+      }
+
+      const btn = document.getElementById('btnWhisperSync');
+      const indicator = document.getElementById('whisperAiIndicator');
+      const statusText = document.getElementById('whisperAiStatusText');
+      const progressFill = document.getElementById('whisperAiProgressFill');
+      const subText = document.getElementById('whisperAiSubText');
+
+      btn.disabled = true;
+      indicator.style.display = 'block';
+      progressFill.style.width = '10%';
+      statusText.textContent = '🧠 AIモデルを準備中（初回のみ約39MBダウンロード）...';
+      subText.textContent = '※ サーバーを使わずスマホ/PC内部だけでAIが歌声を聴き取っています';
+
+      try {
+        // 1. Resample audio to 16kHz Float32Array for Whisper
+        subText.textContent = '音声データをAI用に最適化中...';
+        progressFill.style.width = '20%';
+        const audio16k = await resampleAudioBufferTo16k(APP_STATE.audioBuffer);
+
+        // 2. Load Transformers.js dynamically
+        subText.textContent = 'AIエンジンをロード中...';
+        const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
+        env.allowLocalModels = false;
+        env.useBrowserCache = true;
+
+        // 3. Initialize Whisper-tiny pipeline if not already cached
+        if (!whisperPipelineInstance) {
+          whisperPipelineInstance = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny', {
+            progress_callback: (progress) => {
+              if (progress.status === 'progress') {
+                const pct = Math.round(progress.progress || 0);
+                progressFill.style.width = `${Math.min(85, 20 + pct * 0.65)}%`;
+                statusText.textContent = `🧠 AIモデルをダウンロード中... (${pct}%)`;
+              } else if (progress.status === 'ready' || progress.status === 'done') {
+                progressFill.style.width = '85%';
+                statusText.textContent = '🎤 AIが歌声を耳で聴き取り中...（少々お待ちください）';
+              }
+            }
+          });
+        }
+
+        progressFill.style.width = '88%';
+        statusText.textContent = '🎤 AIが歌声を耳で聴き取り中...（少々お待ちください）';
+        subText.textContent = '※ スマホ/PCのプロセッサで歌声のタイミングを計算しています';
+
+        await new Promise(r => setTimeout(r, 80));
+
+        // 4. Run Speech Recognition with Timestamps
+        const result = await whisperPipelineInstance(audio16k, {
+          language: 'japanese',
+          task: 'transcribe',
+          return_timestamps: true,
+          chunk_length_s: 30,
+          stride_length_s: 5
+        });
+
+        progressFill.style.width = '96%';
+        statusText.textContent = '✨ 歌詞テキストとAIタイミングを結合中...';
+
+        // 5. Map detected chunks to user's lyrics lines
+        const chunks = result.chunks || [];
+        const synced = [];
+        const totalDuration = APP_STATE.duration || 30;
+
+        if (chunks.length > 0) {
+          const validChunks = chunks.filter(c => c.timestamp && c.timestamp[0] !== null);
+          const N = lines.length;
+          const layouts = ['horizontal', 'vertical', 'diagonal'];
+
+          for (let i = 0; i < N; i++) {
+            let start = 0.5;
+            let end = 3.0;
+
+            if (validChunks.length > 0) {
+              const chunkIdx = Math.min(validChunks.length - 1, Math.floor((i / N) * validChunks.length));
+              const chunk = validChunks[chunkIdx];
+              start = parseFloat(chunk.timestamp[0].toFixed(2));
+              end = chunk.timestamp[1] !== null ? parseFloat(chunk.timestamp[1].toFixed(2)) : start + 2.5;
+            }
+
+            synced.push({
+              text: lines[i],
+              start: Math.max(0.2, start),
+              end: Math.max(start + 0.8, end),
+              layoutOverride: layouts[i % layouts.length]
+            });
+          }
+
+          // Sort and connect continuous lines cleanly
+          synced.sort((a, b) => a.start - b.start);
+          for (let i = 0; i < synced.length - 1; i++) {
+            if (synced[i].end > synced[i + 1].start) {
+              synced[i].end = Math.max(synced[i].start + 0.5, synced[i + 1].start - 0.1);
+            }
+          }
+        } else {
+          autoSyncLyrics();
+        }
+
+        progressFill.style.width = '100%';
+
+        if (synced.length > 0) {
+          APP_STATE.lyrics = synced;
+          renderTimelineList();
+        }
+
+        playSfx('gacha');
+        if (window.confetti) {
+          confetti({ particleCount: 100, spread: 80 });
+        }
+
+        setTimeout(() => {
+          indicator.style.display = 'none';
+          btn.disabled = false;
+        }, 500);
+
+      } catch (err) {
+        console.error('Whisper AI Error:', err);
+        indicator.style.display = 'none';
+        btn.disabled = false;
+        alert('AI処理中にエラーが発生したため、波形解析同期を実行します。');
+        analyzeFullAudioSingingSync();
+      }
     }
 
     /* 🤖 FULL-TRACK SINGING & PHRASE ANALYSIS AUTO-SYNC */
